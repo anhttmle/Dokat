@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+---
+
+# SDD Rules
+
+## Before writing ANY code
+1. Read the relevant spec file in `specs/<feature>/`
+2. If no spec exists, STOP and tell the user to create one first
+3. Only implement what is explicitly stated in requirements.md and design.md
+4. Do not add "nice to have" features, over-engineer, or add security layers unless stated
+
+## Task execution
+- Only implement the ONE task given to you
+- Write tests BEFORE implementation (TDD)
+- After finishing a task, summarize what was done and what test covers it
+- Do not read tasks.md in full — only process the task given in the prompt
+
+## Decision log
+- If you make any design decision not explicitly covered in the spec, add it to `specs/<feature>/decision_log.md`
+
+## Scope
+- When in doubt, do LESS not more
+- This is not an enterprise product unless the spec says so
