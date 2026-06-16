@@ -14,6 +14,7 @@ from app.config import Settings
 from app.errors.codes import ErrorCode
 from app.errors.handlers import error_response, register_exception_handlers
 from app.errors.normalizer import normalize_upstream_response
+from app.health.checker import run_health_check
 from app.middleware.logging import AccessLoggingMiddleware
 from app.middleware.rate_limit import (
     RateLimitMiddleware,
@@ -80,16 +81,16 @@ def _add_routes(app: FastAPI) -> None:
 
     @app.get("/health", include_in_schema=False)
     async def health(request: Request) -> JSONResponse:
-        """Public health stub — no auth required (FR-02.7, FR-06.1).
-
-        Full health aggregation (checking upstream services) is implemented
-        in T-10.  This stub returns 200 so that auth integration tests can
-        verify the public route bypasses auth.
-        """
-        return JSONResponse(
-            status_code=200,
-            content={"status": "ok"},
+        """Public health check — no auth required (FR-02.7, FR-06.1)."""
+        route_table = request.app.state.route_table
+        http_client = request.app.state.http_client
+        settings = get_settings()
+        body, status_code = await run_health_check(
+            route_table,
+            http_client,
+            settings.health_probe_timeout_seconds,
         )
+        return JSONResponse(status_code=status_code, content=body)
 
     @app.api_route(
         "/{path:path}",

@@ -8,7 +8,9 @@ import os
 from unittest.mock import patch
 
 import fakeredis.aioredis
+import httpx
 import pytest
+import respx
 
 # ---------------------------------------------------------------------------
 # Env var defaults — applied via pytest_configure so they are set before
@@ -32,6 +34,10 @@ _TEST_ENV: dict[str, str] = {
     "UPSTREAM_SETTING_SERVICE_URL": "http://setting-svc:8000",
     "UPSTREAM_AI_API_URL": "http://ai-provider.example.com",
 }
+
+_UPSTREAM_BASE_URLS: tuple[str, ...] = tuple(
+    sorted({v for k, v in _TEST_ENV.items() if k.startswith("UPSTREAM_")})
+)
 
 
 def pytest_configure(config) -> None:  # noqa: ANN001
@@ -85,3 +91,14 @@ def fake_redis():
 def _patch_redis(fake_redis, monkeypatch):  # noqa: ANN001
     """Use fakeredis for all tests so no real Redis is required."""
     monkeypatch.setattr("redis.asyncio.from_url", lambda *a, **k: fake_redis)
+
+
+@pytest.fixture()
+def mock_upstream_health_up():
+    """Mock all upstream /health endpoints as 200 OK (T-10)."""
+    with respx.mock:
+        for base_url in _UPSTREAM_BASE_URLS:
+            respx.get(f"{base_url}/health").mock(
+                return_value=httpx.Response(200, json={"status": "ok"})
+            )
+        yield

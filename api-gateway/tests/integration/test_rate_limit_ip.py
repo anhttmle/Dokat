@@ -14,7 +14,7 @@ def client_with_redis():
 
 class TestRateLimitPerIp:
     def test_ac04_31st_public_request_returns_429(
-        self, client_with_redis: TestClient
+        self, client_with_redis: TestClient, mock_upstream_health_up
     ):
         """AC-04: 31 requests/min to public endpoint → 429 + Retry-After."""
         client = client_with_redis

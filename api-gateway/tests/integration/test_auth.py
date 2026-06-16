@@ -124,13 +124,15 @@ class TestMissingAuthorization:
 
 
 class TestPublicHealthRoute:
-    def test_health_no_token_returns_200(self):
+    def test_health_no_token_returns_200(self, mock_upstream_health_up):
         """GET /health must succeed without any Authorization header."""
         with _make_unauthed_client() as c:
             resp = c.get("/health")
         assert resp.status_code == 200
 
-    def test_health_with_token_still_returns_200(self, mock_verify_id_token):
+    def test_health_with_token_still_returns_200(
+        self, mock_verify_id_token, mock_upstream_health_up
+    ):
         """Auth token is ignored for the public /health route."""
         app = create_app()
         with TestClient(app, raise_server_exceptions=False) as c:

@@ -375,7 +375,7 @@ Normalize upstream 4xx/5xx JSON errors; thêm `trace_id`.
 
 ## T-10 — Health check endpoint
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-04, T-08
 
 ### Mục tiêu
@@ -403,7 +403,7 @@ Mock upstream health endpoints với respx.
 
 ### Done when
 
-- [ ] AC-07 tests pass
+- [x] AC-07 tests pass
 
 **Covers:** FR-06.1–06.2, AC-07, D-03, D-09
 
