@@ -80,7 +80,7 @@ từ env, và FastAPI app skeleton.
 
 ## T-02 — Error schema & exception handlers
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-01
 
 ### Mục tiêu
@@ -106,8 +106,8 @@ Chuẩn hoá error response JSON và global exception handlers.
 
 ### Done when
 
-- [ ] Tests pass
-- [ ] Mọi gateway-generated error tuân schema FR-05.1
+- [x] Tests pass — 24/24
+- [x] Mọi gateway-generated error tuân schema FR-05.1
 
 **Covers:** FR-05.1, FR-05.5
 
