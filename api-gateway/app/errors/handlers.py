@@ -35,10 +35,12 @@ class GatewayError(Exception):
         code: ErrorCode,
         message: str,
         status_code: int,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.code = code
         self.message = message
         self.status_code = status_code
+        self.headers = headers or {}
         super().__init__(message)
 
 
@@ -91,13 +93,21 @@ def _trace_id(request: Request) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _handle_gateway_error(
+def gateway_error_response(
     request: Request, exc: GatewayError
 ) -> JSONResponse:
+    """Convert a GatewayError to a JSONResponse (for use in middleware)."""
     return JSONResponse(
         status_code=exc.status_code,
         content=error_response(exc.code, exc.message, _trace_id(request)),
+        headers=exc.headers,
     )
+
+
+async def _handle_gateway_error(
+    request: Request, exc: GatewayError
+) -> JSONResponse:
+    return gateway_error_response(request, exc)
 
 
 async def _handle_http_exception(

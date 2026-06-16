@@ -7,6 +7,7 @@ Individual tests can override via monkeypatch (see test_config.py).
 import os
 from unittest.mock import patch
 
+import fakeredis.aioredis
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -72,3 +73,15 @@ def mock_verify_id_token():
     with patch("app.auth.firebase.verify_id_token") as mock:
         mock.return_value = VALID_FIREBASE_CLAIMS.copy()
         yield mock
+
+
+@pytest.fixture()
+def fake_redis():
+    """In-memory async Redis for rate limit tests (T-08)."""
+    return fakeredis.aioredis.FakeRedis()
+
+
+@pytest.fixture(autouse=True)
+def _patch_redis(fake_redis, monkeypatch):  # noqa: ANN001
+    """Use fakeredis for all tests so no real Redis is required."""
+    monkeypatch.setattr("redis.asyncio.from_url", lambda *a, **k: fake_redis)

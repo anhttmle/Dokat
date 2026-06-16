@@ -3,6 +3,9 @@
 Covers FR-01.4 (route not found) and AC-01 (happy-path proxy forwarding).
 """
 
+import json
+import logging
+
 import httpx
 import pytest
 import respx
@@ -63,3 +66,31 @@ class TestProxyHappyPath:
         upstream_req = respx.calls[0].request
         assert upstream_req.headers.get("x-internal-token") is not None
         assert upstream_req.headers.get("authorization") is None
+
+    @respx.mock
+    def test_ac01_log_contains_required_fields(
+        self, mock_verify_id_token, caplog
+    ):
+        """AC-01: log has trace_id, user_id, path, status_code, latency_ms."""
+        respx.get("http://pet-svc:8000/pets/123").mock(
+            return_value=httpx.Response(200, json={"id": 123})
+        )
+
+        with caplog.at_level(logging.INFO):
+            with TestClient(create_app(), raise_server_exceptions=False) as c:
+                c.get(
+                    "/pets/123",
+                    headers={"Authorization": "Bearer firebase-token"},
+                )
+
+        log_records = [
+            r for r in caplog.records if r.name == "app.middleware.logging"
+        ]
+        assert len(log_records) >= 1
+        entry = json.loads(log_records[-1].message)
+        assert entry["trace_id"]
+        assert entry["user_id"] == "test-user-123"
+        assert entry["path"] == "/pets/123"
+        assert entry["status_code"] == 200
+        assert entry["latency_ms"] is not None
+        assert "firebase-token" not in log_records[-1].message

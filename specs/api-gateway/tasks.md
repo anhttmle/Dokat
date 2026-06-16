@@ -267,7 +267,7 @@ Fixtures: `respx` mock upstream.
 
 ## T-07 — Access logging middleware
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-03, T-06
 
 ### Mục tiêu
@@ -296,7 +296,7 @@ Dùng `caplog` hoặc mock stdout handler.
 
 ### Done when
 
-- [ ] AC-01 (log fields), AC-08, AC-09 (log) tests pass
+- [x] AC-01 (log fields), AC-08, AC-09 (log) tests pass
 
 **Covers:** FR-04.1, FR-04.3–04.5, AC-08
 
@@ -304,7 +304,7 @@ Dùng `caplog` hoặc mock stdout handler.
 
 ## T-08 — Rate limiting (Redis)
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-03, T-05
 
 ### Mục tiêu
@@ -334,7 +334,7 @@ Dùng `fakeredis` async.
 
 ### Done when
 
-- [ ] AC-03, AC-04, AC-10 tests pass
+- [x] AC-03, AC-04, AC-10 tests pass
 
 **Covers:** FR-03.1–03.6, AC-03, AC-04, AC-10
 

@@ -5,8 +5,11 @@ Covers FR-04.2 and AC-09:
 - Valid UUID v4 header   → gateway keeps it unchanged.
 - Invalid header value   → gateway replaces it with a new UUID v4.
 - Error response         → contains the same trace_id as the request.
+- Log entry              → contains the same trace_id (AC-09).
 """
 
+import json
+import logging
 import re
 
 import pytest
@@ -15,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from app.errors.codes import ErrorCode
 from app.errors.handlers import GatewayError, register_exception_handlers
+from app.middleware.logging import AccessLoggingMiddleware
 from app.middleware.trace import TraceMiddleware
 
 UUID_V4_RE = re.compile(
@@ -30,8 +34,9 @@ VALID_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
 
 def _build_app() -> FastAPI:
-    """Minimal app: trace middleware + one echo route + one crashing route."""
+    """Minimal app: trace + logging middleware + echo/crash routes."""
     app = FastAPI()
+    app.add_middleware(AccessLoggingMiddleware)
     app.add_middleware(TraceMiddleware)
     register_exception_handlers(app)
 
@@ -101,3 +106,29 @@ class TestTraceIdInErrorResponse:
     def test_generated_trace_id_in_error_response(self, client: TestClient):
         body = client.get("/crash").json()
         assert UUID_V4_RE.match(body["error"]["trace_id"])
+
+
+class TestTraceIdInLogEntry:
+    """AC-09: trace_id must appear in access log entry."""
+
+    def test_log_entry_contains_trace_id(self, client: TestClient, caplog):
+        with caplog.at_level(logging.INFO):
+            client.get("/echo-trace", headers={"X-Trace-ID": VALID_UUID})
+
+        log_records = [
+            r for r in caplog.records if r.name == "app.middleware.logging"
+        ]
+        assert len(log_records) >= 1
+        entry = json.loads(log_records[-1].message)
+        assert entry["trace_id"] == VALID_UUID
+
+    def test_generated_trace_id_in_log_entry(self, client: TestClient, caplog):
+        with caplog.at_level(logging.INFO):
+            client.get("/echo-trace")
+
+        log_records = [
+            r for r in caplog.records if r.name == "app.middleware.logging"
+        ]
+        assert len(log_records) >= 1
+        entry = json.loads(log_records[-1].message)
+        assert UUID_V4_RE.match(entry["trace_id"])

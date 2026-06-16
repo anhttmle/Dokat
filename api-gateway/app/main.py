@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, Request
 from starlette.responses import JSONResponse, Response
 
@@ -12,6 +13,11 @@ from app.auth.firebase import init_firebase_app
 from app.config import Settings
 from app.errors.codes import ErrorCode
 from app.errors.handlers import error_response, register_exception_handlers
+from app.middleware.logging import AccessLoggingMiddleware
+from app.middleware.rate_limit import (
+    RateLimitMiddleware,
+    check_protected_limits,
+)
 from app.middleware.trace import TraceMiddleware
 from app.proxy.client import close_http_client, create_http_client
 from app.proxy.forwarder import forward_request
@@ -61,11 +67,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.http_client = await create_http_client(
         settings.upstream_timeout_seconds
     )
+    app.state.redis = aioredis.from_url(settings.redis_url)
 
-    # TODO T-08: initialise Redis connection pool
     yield
     await close_http_client(app.state.http_client)
-    # TODO T-08: close Redis connection pool
+    await app.state.redis.aclose()
 
 
 def _add_routes(app: FastAPI) -> None:
@@ -126,6 +132,14 @@ def _add_routes(app: FastAPI) -> None:
         request.state.auth = auth_ctx
         request.state.route = route
 
+        # Step 4b: rate limit (after auth, before proxy — FR-03)
+        await check_protected_limits(
+            app.state.redis,
+            auth_ctx.uid,
+            route,
+            settings,
+        )
+
         # Step 5: forward to upstream
         http_client = app.state.http_client
         result = await forward_request(
@@ -153,6 +167,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     register_exception_handlers(app)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(AccessLoggingMiddleware)
     app.add_middleware(TraceMiddleware)
     _add_routes(app)
     return app

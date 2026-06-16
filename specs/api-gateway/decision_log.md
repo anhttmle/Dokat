@@ -129,3 +129,27 @@ song song cho tất cả upstream.
 
 **Decision:** Nếu client gửi `X-Trace-ID` là **UUID v4 hợp lệ** → giữ nguyên.
 Nếu thiếu hoặc invalid → Gateway sinh UUID v4 mới.
+
+---
+
+## D-11 — Access log via stdlib logging
+
+**Context:** T-07 yêu cầu JSON access log ra stdout (FR-04.4). Design ghi
+structlog nhưng dependency chưa được dùng ở các task trước.
+
+**Decision:** Dùng stdlib ``logging`` với message là JSON string
+(``json.dumps(entry)``). Logger name ``app.middleware.logging``. Level
+INFO cho status < 500, ERROR cho status >= 500. Đủ cho Loki ingestion và
+``caplog`` trong tests; structlog có thể thêm sau nếu cần.
+
+---
+
+## D-12 — GatewayError trong middleware
+
+**Context:** T-08 raise ``GatewayError`` từ ``RateLimitMiddleware`` cho IP
+limit trên ``/health``.
+
+**Decision:** Starlette ``BaseHTTPMiddleware`` không route exception tới
+FastAPI handlers. Middleware bắt ``GatewayError`` và trả
+``gateway_error_response()`` (shared helper trong ``handlers.py``). Route
+handlers vẫn raise ``GatewayError`` bình thường.
