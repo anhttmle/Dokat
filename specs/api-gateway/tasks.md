@@ -342,7 +342,7 @@ Dùng `fakeredis` async.
 
 ## T-09 — Upstream error normalization
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-06, T-02
 
 ### Mục tiêu
@@ -367,7 +367,7 @@ Normalize upstream 4xx/5xx JSON errors; thêm `trace_id`.
 
 ### Done when
 
-- [ ] Tests pass
+- [x] Tests pass
 
 **Covers:** FR-05.2, D-06
 

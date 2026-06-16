@@ -13,6 +13,7 @@ from app.auth.firebase import init_firebase_app
 from app.config import Settings
 from app.errors.codes import ErrorCode
 from app.errors.handlers import error_response, register_exception_handlers
+from app.errors.normalizer import normalize_upstream_response
 from app.middleware.logging import AccessLoggingMiddleware
 from app.middleware.rate_limit import (
     RateLimitMiddleware,
@@ -150,10 +151,16 @@ def _add_routes(app: FastAPI) -> None:
             trace_id,
         )
         request.state.upstream_latency_ms = result.upstream_latency_ms
+        norm_status, norm_body, norm_headers = normalize_upstream_response(
+            result.status_code,
+            result.body,
+            result.headers,
+            trace_id,
+        )
         return Response(
-            content=result.body,
-            status_code=result.status_code,
-            headers=result.headers,
+            content=norm_body,
+            status_code=norm_status,
+            headers=norm_headers,
         )
 
 

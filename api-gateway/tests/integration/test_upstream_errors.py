@@ -68,3 +68,35 @@ class TestUpstreamUnavailable:
         body = resp.json()
         assert body["error"]["code"] == ErrorCode.UPSTREAM_UNAVAILABLE
         assert "trace_id" in body["error"]
+
+
+class TestUpstreamErrorNormalization:
+    @respx.mock
+    def test_upstream_404_json_keeps_status_and_adds_trace_id(
+        self, mock_verify_id_token
+    ):
+        """Upstream 404 JSON error → status kept, trace_id added (T-09)."""
+        respx.get("http://pet-svc:8000/pets/999").mock(
+            return_value=httpx.Response(
+                404,
+                json={
+                    "error": {
+                        "code": "PET_NOT_FOUND",
+                        "message": "Not found.",
+                    }
+                },
+            )
+        )
+
+        with TestClient(create_app(), raise_server_exceptions=False) as client:
+            resp = client.get(
+                "/pets/999",
+                headers={"Authorization": "Bearer firebase-token"},
+            )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["error"]["code"] == "PET_NOT_FOUND"
+        assert body["error"]["message"] == "Not found."
+        assert "trace_id" in body["error"]
+        assert body["error"]["trace_id"]
