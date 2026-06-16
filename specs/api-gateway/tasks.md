@@ -227,7 +227,7 @@ Fixtures trong `tests/conftest.py`: mock `auth.verify_id_token`.
 
 ## T-06 — HTTP proxy forwarder
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-04, T-05
 
 ### Mục tiêu
@@ -258,8 +258,8 @@ Fixtures: `respx` mock upstream.
 
 ### Done when
 
-- [ ] AC-01, AC-05 tests pass
-- [ ] `upstream_latency_ms` available cho logging (T-07)
+- [x] AC-01, AC-05 tests pass
+- [x] `upstream_latency_ms` available cho logging (T-07)
 
 **Covers:** FR-01.3, FR-02.4, FR-05.3–05.4, AC-01, AC-05
 

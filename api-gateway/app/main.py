@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from app.auth.dependency import AuthContext, authenticate_request, get_settings
 from app.auth.firebase import init_firebase_app
@@ -13,6 +13,8 @@ from app.config import Settings
 from app.errors.codes import ErrorCode
 from app.errors.handlers import error_response, register_exception_handlers
 from app.middleware.trace import TraceMiddleware
+from app.proxy.client import close_http_client, create_http_client
+from app.proxy.forwarder import forward_request
 from app.routing.matcher import match_route
 from app.routing.registry import build_route_table
 
@@ -56,9 +58,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         upstream_urls=upstream_urls,
         capture_rate_limit_per_min=settings.rate_limit_capture_per_min,
     )
+    app.state.http_client = await create_http_client(
+        settings.upstream_timeout_seconds
+    )
 
     # TODO T-08: initialise Redis connection pool
     yield
+    await close_http_client(app.state.http_client)
     # TODO T-08: close Redis connection pool
 
 
@@ -87,7 +93,7 @@ def _add_routes(app: FastAPI) -> None:
         request: Request,
         path: str,
         settings: Annotated[Settings, Depends(get_settings)],
-    ) -> JSONResponse:
+    ) -> Response:
         """Route matching + auth guard for all non-public paths.
 
         Flow (per design.md §Request lifecycle):
@@ -116,18 +122,24 @@ def _add_routes(app: FastAPI) -> None:
         auth_header = request.headers.get("authorization", "")
         auth_ctx: AuthContext = authenticate_request(auth_header, settings)
 
-        # Step 4: attach to request state (T-06 will read this)
+        # Step 4: attach to request state (T-07 logging will read this)
         request.state.auth = auth_ctx
         request.state.route = route
 
-        # Step 5: proxy stub (T-06 will replace this)
-        return JSONResponse(
-            status_code=501,
-            content=error_response(
-                ErrorCode.INTERNAL_ERROR,
-                "Proxy forwarding not yet implemented.",
-                trace_id,
-            ),
+        # Step 5: forward to upstream
+        http_client = app.state.http_client
+        result = await forward_request(
+            request,
+            route,
+            auth_ctx,
+            http_client,
+            trace_id,
+        )
+        request.state.upstream_latency_ms = result.upstream_latency_ms
+        return Response(
+            content=result.body,
+            status_code=result.status_code,
+            headers=result.headers,
         )
 
 

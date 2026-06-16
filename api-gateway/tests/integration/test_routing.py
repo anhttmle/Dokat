@@ -1,10 +1,11 @@
-"""Integration tests for routing — 404 on unknown path (TDD).
+"""Integration tests for routing — 404 on unknown path and AC-01 (TDD).
 
-Full happy-path routing (AC-01) is tested in T-06 after the proxy
-forwarder is implemented. This file covers FR-01.4 only.
+Covers FR-01.4 (route not found) and AC-01 (happy-path proxy forwarding).
 """
 
+import httpx
 import pytest
+import respx
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -39,3 +40,26 @@ class TestRouteNotFound:
         """'/pet' is not registered; only '/pets/...' is."""
         resp = client.get("/pet")
         assert resp.status_code == 404
+
+
+class TestProxyHappyPath:
+    @respx.mock
+    def test_ac01_upstream_receives_x_internal_token(
+        self, mock_verify_id_token
+    ):
+        """AC-01: valid token → upstream receives X-Internal-Token."""
+        respx.get("http://pet-svc:8000/pets/123").mock(
+            return_value=httpx.Response(200, json={"id": 123})
+        )
+
+        with TestClient(create_app(), raise_server_exceptions=False) as c:
+            resp = c.get(
+                "/pets/123",
+                headers={"Authorization": "Bearer firebase-token"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"id": 123}
+        upstream_req = respx.calls[0].request
+        assert upstream_req.headers.get("x-internal-token") is not None
+        assert upstream_req.headers.get("authorization") is None
