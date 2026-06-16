@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.errors.handlers import register_exception_handlers
+from app.middleware.trace import TraceMiddleware
 
 
 @asynccontextmanager
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     register_exception_handlers(app)
+    app.add_middleware(TraceMiddleware)
     return app
 
 

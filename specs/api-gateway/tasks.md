@@ -115,7 +115,7 @@ Chuẩn hoá error response JSON và global exception handlers.
 
 ## T-03 — Trace ID middleware
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-01, T-02
 
 ### Mục tiêu
@@ -141,7 +141,7 @@ Sinh hoặc giữ `trace_id`, gắn vào request context.
 
 ### Done when
 
-- [ ] Tests pass
+- [x] Tests pass — 17/17
 
 **Covers:** FR-04.2, AC-09 (phần sinh/giữ trace_id)
 
