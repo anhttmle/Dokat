@@ -22,3 +22,4 @@ alwaysApply: true
 ## Scope
 - When in doubt, do LESS not more
 - This is not an enterprise product unless the spec says so
+- Repo source code of each module/service always has Makefile to run on local

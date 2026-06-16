@@ -45,7 +45,7 @@
 
 ## T-01 — Project scaffold & config
 
-**Status:** `[ ]`
+**Status:** `[x]` — Completed 2026-06-16
 
 ### Mục tiêu
 
@@ -72,9 +72,9 @@ từ env, và FastAPI app skeleton.
 
 ### Done when
 
-- [ ] `pytest tests/unit/test_config.py` pass
-- [ ] `ruff check` + `ruff format --check` pass
-- [ ] `uvicorn app.main:app` khởi động được (health chưa cần hoạt động)
+- [x] `pytest tests/unit/test_config.py` pass — 15/15
+- [x] `ruff check` + `ruff format --check` pass
+- [x] `uvicorn app.main:app` khởi động được (health chưa cần hoạt động)
 
 ---
 
