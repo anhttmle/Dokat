@@ -149,7 +149,7 @@ Sinh hoặc giữ `trace_id`, gắn vào request context.
 
 ## T-04 — Route registry & matcher
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-01, T-02
 
 ### Mục tiêu
@@ -176,8 +176,8 @@ Sinh hoặc giữ `trace_id`, gắn vào request context.
 
 ### Done when
 
-- [ ] Tests pass
-- [ ] Đủ 14 prefix theo design + bảng critical/non-critical (D-03)
+- [x] Tests pass — 26/26
+- [x] Đủ 14 prefix theo design + bảng critical/non-critical (D-03)
 
 **Covers:** FR-01.1, FR-01.2, FR-01.4
 
@@ -185,7 +185,7 @@ Sinh hoặc giữ `trace_id`, gắn vào request context.
 
 ## T-05 — Firebase auth & Internal JWT
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-01, T-02
 
 ### Mục tiêu
@@ -218,8 +218,8 @@ Fixtures trong `tests/conftest.py`: mock `auth.verify_id_token`.
 
 ### Done when
 
-- [ ] Tests pass
-- [ ] Firebase Admin init qua `FIREBASE_CREDENTIALS_PATH`
+- [x] Tests pass
+- [x] Firebase Admin init qua `FIREBASE_CREDENTIALS_PATH`
 
 **Covers:** FR-02.1–02.7, AC-02, AC-06
 
