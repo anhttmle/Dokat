@@ -9,7 +9,11 @@ from starlette.requests import Request
 from app.auth.dependency import AuthContext
 from app.errors.codes import ErrorCode
 from app.errors.handlers import GatewayError
-from app.proxy.headers import build_upstream_headers, strip_hop_by_hop_headers
+from app.proxy.headers import (
+    build_ai_upstream_headers,
+    build_upstream_headers,
+    strip_hop_by_hop_headers,
+)
 from app.routing.registry import RouteConfig
 
 
@@ -51,6 +55,7 @@ async def forward_request(
     auth_ctx: AuthContext,
     http_client: httpx.AsyncClient,
     trace_id: str,
+    ai_api_key: str = "",
 ) -> ForwardResult:
     """Forward the incoming request to the upstream service.
 
@@ -60,6 +65,8 @@ async def forward_request(
         auth_ctx: Authenticated user context with Internal JWT.
         http_client: Shared httpx async client.
         trace_id: Request trace identifier.
+        ai_api_key: Third-party AI provider API key (D-07); used when
+            ``route.is_ai`` is True.
 
     Returns:
         ``ForwardResult`` with passthrough status, body, and headers.
@@ -70,11 +77,18 @@ async def forward_request(
     """
     upstream_url = _build_upstream_url(route, request)
     body = await request.body()
-    headers = build_upstream_headers(
-        dict(request.headers),
-        auth_ctx.internal_jwt,
-        trace_id,
-    )
+    if route.is_ai:
+        headers = build_ai_upstream_headers(
+            dict(request.headers),
+            ai_api_key,
+            trace_id,
+        )
+    else:
+        headers = build_upstream_headers(
+            dict(request.headers),
+            auth_ctx.internal_jwt,
+            trace_id,
+        )
 
     start = time.monotonic()
     try:

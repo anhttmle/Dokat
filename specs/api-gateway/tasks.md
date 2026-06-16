@@ -411,7 +411,7 @@ Mock upstream health endpoints với respx.
 
 ## T-11 — AI route proxy (API Key only)
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-06, T-05
 
 ### Mục tiêu
@@ -435,7 +435,7 @@ Route `/ai/*`: yêu cầu Firebase auth từ client; forward chỉ `AI_API_KEY`.
 
 ### Done when
 
-- [ ] Tests pass
+- [x] Tests pass — 3/3
 
 **Covers:** FR-01.2 (Third-party AI), D-07
 

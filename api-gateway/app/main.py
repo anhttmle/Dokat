@@ -150,6 +150,7 @@ def _add_routes(app: FastAPI) -> None:
             auth_ctx,
             http_client,
             trace_id,
+            ai_api_key=settings.ai_api_key,
         )
         request.state.upstream_latency_ms = result.upstream_latency_ms
         norm_status, norm_body, norm_headers = normalize_upstream_response(
