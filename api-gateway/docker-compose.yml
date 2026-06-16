@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  api-gateway:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_started
+    volumes:
+      - ${FIREBASE_CREDENTIALS_PATH}:${FIREBASE_CREDENTIALS_PATH}:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health); [ \"$$code\" = \"200\" ] || [ \"$$code\" = \"503\" ]",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

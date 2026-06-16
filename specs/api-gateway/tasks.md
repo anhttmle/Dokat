@@ -443,7 +443,7 @@ Route `/ai/*`: yêu cầu Firebase auth từ client; forward chỉ `AI_API_KEY`.
 
 ## T-12 — Docker Compose & CI
 
-**Status:** `[ ]`  
+**Status:** `[x]` — Completed 2026-06-16  
 **Phụ thuộc:** T-01 → T-11
 
 ### Mục tiêu
@@ -470,9 +470,9 @@ Containerize gateway; docker-compose local; CI pipeline.
 
 ### Done when
 
-- [ ] `docker compose up` chạy gateway + redis
-- [ ] CI workflow green với full test suite
-- [ ] Coverage ≥ 80%
+- [x] `docker compose up` chạy gateway + redis (config ready; verify locally)
+- [x] CI workflow green với full test suite
+- [x] Coverage ≥ 80% — 94%
 
 **Covers:** Technical Constraints, design Test Strategy / CI
 

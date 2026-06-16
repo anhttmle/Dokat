@@ -29,7 +29,7 @@ class TestAiProxyHappyPath:
     def test_upstream_receives_ai_api_key(
         self, mock_verify_id_token, ai_api_key
     ):
-        """Valid Firebase token → upstream receives Authorization: Bearer AI key."""
+        """Valid Firebase token → upstream receives AI API Key."""
         respx.post(_AI_UPSTREAM_URL).mock(
             return_value=httpx.Response(200, json={"result": "ok"})
         )
