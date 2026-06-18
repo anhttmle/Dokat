@@ -1,9 +1,0 @@
-.venv/
-tests/
-.pytest_cache/
-.env
-__pycache__/
-.ruff_cache/
-*.pyc
-.git/
-.gitignore
