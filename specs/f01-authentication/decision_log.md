@@ -46,6 +46,36 @@ implementation nội bộ của package.
 
 ---
 
+## DL-006: Unit tests dùng SQLite in-memory thay vì chạy Alembic trên PostgreSQL
+
+**Date:** 2026-06-19
+**Context:** Task 2.1 yêu cầu unit tests `test_users_table_exists` và
+`test_firebase_uid_unique_constraint` cho migration bảng `users`.
+Chạy `alembic upgrade head` trong unit tests đòi hỏi PostgreSQL đang chạy
+(vì migration dùng `gen_random_uuid()` và `TIMESTAMPTZ` — PostgreSQL-specific).
+**Decision:** Unit tests dùng `Base.metadata.create_all()` với SQLite
+in-memory (`sqlite:///:memory:`) để kiểm tra schema contract (table tồn
+tại, UNIQUE constraint hoạt động) mà không cần PostgreSQL.
+Migration Alembic vẫn dùng PostgreSQL-specific DDL cho production.
+**Consequence:** Unit tests chạy không cần Docker/PostgreSQL. Integration
+tests (chạy `alembic upgrade head` trên real PostgreSQL) là việc riêng
+của CI pipeline.
+
+---
+
+## DL-007: Migration tạo thủ công (không dùng --autogenerate)
+
+**Date:** 2026-06-19
+**Context:** Task 2.1 chỉ yêu cầu migration cho bảng `users`. Model
+`UserProvider` đã tồn tại trong `app/models/user.py`, nên `--autogenerate`
+sẽ kéo cả bảng `user_providers` vào cùng migration.
+**Decision:** Dùng `alembic revision -m "create_users_table"` (không có
+`--autogenerate`) rồi viết `upgrade()`/`downgrade()` thủ công chỉ cho
+bảng `users`. Bảng `user_providers` sẽ là migration riêng biệt ở task sau.
+**Consequence:** Mỗi migration file scope rõ ràng; dễ rollback độc lập.
+
+---
+
 ## DL-003: pytest-asyncio mode = auto
 
 **Date:** 2026-06-18
