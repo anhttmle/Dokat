@@ -76,6 +76,36 @@ bảng `users`. Bảng `user_providers` sẽ là migration riêng biệt ở tas
 
 ---
 
+## DL-008: PRAGMA foreign_keys=ON trong SQLite test cho user_providers
+
+**Date:** 2026-06-19
+**Context:** Task 2.2 yêu cầu `test_user_providers_fk` — insert
+`user_providers` với `user_id` không tồn tại → phải raise error.
+SQLite mặc định **không** enforce FK constraint; cần bật tường minh.
+**Decision:** Dùng `event.listens_for(engine, "connect")` để chạy
+`PRAGMA foreign_keys=ON` trên mỗi connection mới trong fixture
+`db_engine` của file test `test_user_providers_migration.py`.
+**Consequence:** FK enforcement hoạt động đúng trong SQLite in-memory
+test mà không ảnh hưởng các test khác (mỗi fixture dùng engine riêng).
+
+---
+
+## DL-009: oauth_provider ENUM — dùng create_type=False trong op.create_table
+
+**Date:** 2026-06-19
+**Context:** Migration `user_providers` cần tạo PostgreSQL ENUM
+`oauth_provider` trước khi tạo bảng. Nếu dùng `sa.Enum(...)`
+trực tiếp trong `op.create_table()` mà không quản lý lifecycle
+của ENUM, Alembic sẽ tự động tạo/xóa ENUM cùng bảng — nhưng
+không xử lý đúng `checkfirst` khi chạy lại migration.
+**Decision:** Khai báo `postgresql.ENUM(..., create_type=False)` làm
+biến module-level; gọi `_OAUTH_PROVIDER.create(op.get_bind(), checkfirst=True)`
+trong `upgrade()` và `_OAUTH_PROVIDER.drop(..., checkfirst=True)`
+trong `downgrade()` để kiểm soát lifecycle ENUM tường minh.
+**Consequence:** Migration idempotent — không lỗi nếu ENUM đã tồn tại.
+
+---
+
 ## DL-003: pytest-asyncio mode = auto
 
 **Date:** 2026-06-18
