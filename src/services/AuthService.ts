@@ -62,6 +62,30 @@ const AuthService = {
     }
     return user.linkWithCredential(credential);
   },
+
+  /**
+   * Link the current user to an OAuth provider by name.
+   *
+   * Maps the provider name ("google", "apple", "facebook") to the
+   * corresponding Firebase OAuthProvider and calls ``linkWithCredential``.
+   * The actual native OAuth sign-in flow must be initiated before calling
+   * this; this method finalises the Firebase credential linkage.
+   *
+   * Design §4.1 (FR-7, FR-11).
+   *
+   * @param provider - Short provider name: "google" | "apple" | "facebook".
+   */
+  linkWithProvider: async (provider: string): Promise<void> => {
+    const user = auth().currentUser;
+    if (!user) {
+      throw new Error('No authenticated user to link');
+    }
+    const providerId = `${provider}.com`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const oauthProvider = new (auth as any).OAuthProvider(providerId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await user.linkWithCredential(oauthProvider.credential() as any);
+  },
 };
 
 export default AuthService;

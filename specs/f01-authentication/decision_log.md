@@ -285,3 +285,49 @@ Mỗi nhóm tests mới được đặt trong `describe` block riêng để tác
 setup (beforeEach reset storage, reset mocks) với các tests cũ.
 **Consequence:** Không phá vỡ 17 tests đang pass; tests mới có isolation
 rõ ràng qua beforeEach riêng của mỗi describe block.
+
+---
+
+## DL-021: useRequireLinked là named export từ AuthGuard.tsx
+
+**Date:** 2026-06-20
+**Context:** Task 7.2 yêu cầu `AuthGuard.tsx` chứa hook `useRequireLinked()`.
+Có thể đặt hook này trong file riêng (`useRequireLinked.ts`) hoặc
+cùng file với `AuthGuard` component.
+**Decision:** `useRequireLinked` là `named export` từ `AuthGuard.tsx`, giữ
+cùng file vì hook và component chia sẻ mục đích (auth gating). Default
+export vẫn là `AuthGuard` component.
+**Consequence:** Import trong test: `import AuthGuard, { useRequireLinked }
+from '../../components/auth/AuthGuard'`. Nếu hook phức tạp hơn sau này,
+có thể tách ra file riêng mà không cần thay đổi consumer imports.
+
+---
+
+## DL-022: LinkAccountSheet trả null khi visible=false thay vì dựa vào Modal
+
+**Date:** 2026-06-20
+**Context:** React Native `Modal` với `visible={false}` vẫn render children
+trong môi trường test (jest preset mock Modal thành plain View). Nếu chỉ
+dùng `visible` prop của Modal, `queryByTestId('link-account-sheet')` sẽ
+tìm thấy element kể cả khi sheet đáng lẽ phải ẩn → test assertions sai.
+**Decision:** `LinkAccountSheet` returns `null` sớm khi `visible=false`.
+Modal giữ nguyên cho production (animation, native layer), nhưng conditional
+return đảm bảo test có thể assert `queryByTestId` trả `null` đúng.
+**Consequence:** Test assertions cho "sheet is not visible" hoạt động
+chính xác. Production behavior không thay đổi (Modal chỉ thấy khi visible=true).
+
+---
+
+## DL-023: AuthService.linkWithProvider dùng OAuthProvider stub
+
+**Date:** 2026-06-20
+**Context:** Task 7.2 yêu cầu `AuthService.linkWithProvider(provider)`.
+OAuth flow thực (Google Sign-In, Apple Auth) cần native SDK modules và
+không thể test trong Jest environment.
+**Decision:** Implementation dùng `auth.OAuthProvider` từ Firebase mock
+với type cast `as any`. Trong unit tests, toàn bộ `AuthService` được mock
+(`jest.mock('../../services/AuthService')`), nên implementation không ảnh
+hưởng kết quả tests. Khi integrate native OAuth (task khác), method này
+sẽ được cập nhật với flow thực.
+**Consequence:** `linkWithProvider` có signature đúng và testable; native
+OAuth integration là concern của task sau.
