@@ -5,14 +5,19 @@ RUFF    := .venv/bin/ruff
 BLACK   := .venv/bin/black
 UVICORN := .venv/bin/uvicorn
 
-.PHONY: install test lint run
+.PHONY: install test test-integration lint run
 
 install:
 	python3 -m venv .venv
 	$(PIP) install -r requirements.txt
 
 test:
-	$(PYTEST); EXIT=$$?; [ $$EXIT -eq 0 ] || [ $$EXIT -eq 5 ]
+	$(PYTEST) --ignore=tests/integration; \
+	EXIT=$$?; [ $$EXIT -eq 0 ] || [ $$EXIT -eq 5 ]
+
+test-integration:
+	$(PYTEST) tests/integration/ -v; \
+	EXIT=$$?; [ $$EXIT -eq 0 ] || [ $$EXIT -eq 5 ]
 
 lint:
 	$(RUFF) check app tests

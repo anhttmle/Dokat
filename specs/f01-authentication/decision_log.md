@@ -332,6 +332,23 @@ gián tiếp qua AuthGuard khi `forceLinkRequired=true`.
 
 ---
 
+## DL-025: test_data_preserved_after_link xác minh user_id UUID thay vì friends/photos
+
+**Date:** 2026-06-20
+**Context:** Task 9 yêu cầu `test_data_preserved_after_link` seed "5 friends + 3
+photos" rồi sau khi link Google xác minh chúng vẫn thuộc đúng `user_id`.
+Bảng `friends` (F03) và `photos` (F05) chưa tồn tại (DL-018).
+**Decision:** Test xác minh đảm bảo cốt lõi của AC-F01-5 mà không cần
+bảng F03/F05: kiểm tra rằng `users.id` (UUID primary key) không thay đổi
+sau khi link. Đây là điều kiện đủ — mọi row F03/F05 FK đến `user_id` này
+sẽ tự động được bảo toàn mà không cần reassign.
+Test chứa comment `TODO(F03/F05)` đánh dấu vị trí cần thêm seed thực tế
+khi các feature đó được implement.
+**Consequence:** Test pass ngay bây giờ; khi F03/F05 hoàn thành cần cập nhật
+fixture để seed row thật và assert chúng sau link.
+
+---
+
 ## DL-023: AuthService.linkWithProvider dùng OAuthProvider stub
 
 **Date:** 2026-06-20
