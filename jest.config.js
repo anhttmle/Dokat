@@ -15,6 +15,6 @@ module.exports = {
     '<rootDir>/src/**/?(*.)+(spec|test).(ts|tsx)',
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|zustand)/)',
+    'node_modules/(?!(react-native|@react-native|@react-navigation|zustand)/)',
   ],
 };

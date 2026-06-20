@@ -318,6 +318,20 @@ chính xác. Production behavior không thay đổi (Modal chỉ thấy khi visi
 
 ---
 
+## DL-024: @react-navigation/native được thêm vào dependencies cho ForceLinkScreen
+
+**Date:** 2026-06-20
+**Context:** Task 8.2 yêu cầu ForceLinkScreen dùng `useNavigation()` để disable
+back navigation qua `beforeRemove` event. Dự án chưa có React Navigation.
+**Decision:** Cài `@react-navigation/native` (không cần stack navigator vì
+chỉ dùng hook). Tests mock toàn bộ module với `jest.mock('@react-navigation/native')`.
+`AuthGuard.test.tsx` cũng cần thêm mock tương tự vì nó render ForceLinkScreen
+gián tiếp qua AuthGuard khi `forceLinkRequired=true`.
+**Consequence:** `transformIgnorePatterns` trong `jest.config.js` phải include
+`@react-navigation` để babel-jest transform package này.
+
+---
+
 ## DL-023: AuthService.linkWithProvider dùng OAuthProvider stub
 
 **Date:** 2026-06-20

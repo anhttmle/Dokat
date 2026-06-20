@@ -10,6 +10,14 @@ import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({
+    addListener: jest.fn(() => jest.fn()),
+    navigate: jest.fn(),
+    goBack: jest.fn(),
+  }),
+}));
+
 import AuthGuard, {
   useRequireLinked,
 } from '../../components/auth/AuthGuard';
