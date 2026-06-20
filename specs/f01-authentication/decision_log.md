@@ -106,6 +106,41 @@ trong `downgrade()` để kiểm soát lifecycle ENUM tường minh.
 
 ---
 
+## DL-010: FirebaseAuthMiddleware là class-based ASGI middleware, tách biệt với verify_firebase_token dependency
+
+**Date:** 2026-06-20
+**Context:** Task 3.1 yêu cầu viết tests cho `FirebaseAuthMiddleware` (tên
+trong design §4.2). File `app/middleware/auth.py` hiện có `verify_firebase_token`
+là FastAPI dependency function, không phải class middleware.
+Design §3.3 nói "inject `firebase_uid` vào request context" — điều này chỉ
+tự nhiên với class-based middleware (đặt vào `request.state`), không phải
+dependency function (trả về qua DI).
+**Decision:** `FirebaseAuthMiddleware` được viết test như một Starlette
+`BaseHTTPMiddleware` class, inject `firebase_uid` vào `request.state.firebase_uid`,
+trả về JSON response trực tiếp (không qua `HTTPException`) với format
+`{"error": "...", "message": "..."}` theo design §5.2.
+`verify_firebase_token` dependency hiện tại là implementation khác, sẽ được
+đánh giá khi implement task 3.2+.
+**Consequence:** Tests dùng `app.add_middleware(FirebaseAuthMiddleware)` trên
+test app; error response body là `{"error": "...", "message": "..."}` (không
+có wrapper `"detail"`).
+
+---
+
+## DL-011: ImportError là RED state hợp lệ cho TDD test của FirebaseAuthMiddleware
+
+**Date:** 2026-06-20
+**Context:** Task 3.1 yêu cầu "5 tests FAIL". `FirebaseAuthMiddleware` class
+chưa tồn tại → pytest collection fail với ImportError thay vì 5 test failures
+riêng biệt.
+**Decision:** ImportError tại collection time được chấp nhận là trạng thái RED
+trong TDD cycle. Khi `FirebaseAuthMiddleware` được implement, tests sẽ collect
+và từng test sẽ pass/fail độc lập.
+**Consequence:** Không cần tạo stub class chỉ để biến collection error thành
+5 individual failures.
+
+---
+
 ## DL-003: pytest-asyncio mode = auto
 
 **Date:** 2026-06-18
