@@ -82,6 +82,7 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
             )
 
         request.state.firebase_uid = decoded["uid"]
+        request.state.token_claims = decoded
         return await call_next(request)
 
 

@@ -219,7 +219,38 @@ Tests dùng `patch("firebase_admin.auth.verify_id_token")` để bypass middlewa
 
 ---
 
-## DL-003: pytest-asyncio mode = auto
+## DL-017: token_claims injected vào request.state bởi FirebaseAuthMiddleware
+
+**Date:** 2026-06-20
+**Context:** Task 5.2 — endpoint `POST /auth/link` cần trích xuất thông
+tin provider từ Firebase ID Token (``sign_in_provider``, ``identities``).
+Middleware hiện chỉ inject ``firebase_uid``; router không có cách nào
+đọc phần còn lại của decoded token.
+**Decision:** Thêm ``request.state.token_claims = decoded`` vào
+``FirebaseAuthMiddleware.dispatch()`` ngay sau khi set ``firebase_uid``.
+Link endpoint đọc ``request.state.token_claims`` để lấy provider info.
+**Consequence:** Tất cả endpoint downstream có thể đọc claims đầy đủ
+từ ``request.state.token_claims`` mà không cần gọi lại
+``verify_id_token``. Tests tiếp tục patch
+``firebase_admin.auth.verify_id_token`` như cũ.
+
+---
+
+## DL-018: merge case không reassign friends/photos (tables chưa tồn tại)
+
+**Date:** 2026-06-20
+**Context:** Task 5.2 mô tả merge: "reassign foreign keys (friends,
+photos) từ guest sang user B". Bảng friends (F03) và photos (F05) chưa
+được tạo ở thời điểm task này.
+**Decision:** ``link_provider()`` trong ``auth_service.py`` chỉ xóa
+guest record (cascade xóa providers). Comment trong code đánh dấu vị
+trí cần thêm reassignment khi F03/F05 được implement.
+**Consequence:** Merge hiện tại an toàn vì guest chưa có friends/photos.
+Khi F03/F05 hoàn thành, cần cập nhật ``link_provider`` để reassign.
+
+---
+
+
 
 **Date:** 2026-06-18
 **Context:** Backend dùng async FastAPI; test cần async fixtures.
