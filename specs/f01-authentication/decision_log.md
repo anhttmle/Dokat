@@ -257,3 +257,31 @@ Khi F03/F05 hoàn thành, cần cập nhật ``link_provider`` để reassign.
 **Decision:** Đặt `asyncio_mode = "auto"` trong `pyproject.toml`
 để tránh phải thêm `@pytest.mark.asyncio` ở mỗi test.
 **Consequence:** Tất cả async test functions chạy tự động.
+
+---
+
+## DL-019: AuthService.init() không gọi POST /auth/session
+
+**Date:** 2026-06-20
+**Context:** Task 6.2 mô tả "Sau `signInAnonymously()`: gọi `POST /auth/session`,
+cập nhật store." Nhưng 3 test được liệt kê ở task 6.1 không có test nào
+kiểm tra lời gọi API hay cập nhật store.
+**Decision:** `AuthService.init()` chỉ implement những gì tests cover:
+đọc storage → restore hoặc signInAnonymously → lưu uid. Lời gọi
+`POST /auth/session` và cập nhật store sẽ được thêm khi có test tương ứng.
+**Consequence:** YAGNI — không build trước feature chưa có test. Khi task
+tiếp theo yêu cầu API call trong init(), cần thêm test + implementation.
+
+---
+
+## DL-020: Tests thêm vào file hiện có thay vì tạo file mới
+
+**Date:** 2026-06-20
+**Context:** Task 6.1 yêu cầu 5 tests mới nhưng cả hai file
+`AuthService.test.ts` và `LocalStorageService.test.ts` đã tồn tại với
+tests khác đang PASS.
+**Decision:** Append tests vào cuối các file hiện có thay vì tạo file mới.
+Mỗi nhóm tests mới được đặt trong `describe` block riêng để tách biệt
+setup (beforeEach reset storage, reset mocks) với các tests cũ.
+**Consequence:** Không phá vỡ 17 tests đang pass; tests mới có isolation
+rõ ràng qua beforeEach riêng của mỗi describe block.

@@ -90,3 +90,30 @@ describe('LocalStorageService', () => {
     });
   });
 });
+
+describe('LocalStorageService end-to-end behavior', () => {
+  beforeEach(async () => {
+    // Reset in-memory storage state; clearAllMocks resets call history only.
+    await AsyncStorage.clear();
+    jest.clearAllMocks();
+  });
+
+  it('saves and reads back the same firebase uid', async () => {
+    // test_save_and_read_firebase_uid
+    await LocalStorageService.saveFirebaseUid('uid-roundtrip');
+
+    const result = await LocalStorageService.getFirebaseUid();
+
+    expect(result).toBe('uid-roundtrip');
+  });
+
+  it('returns null for firebase uid after clear', async () => {
+    // test_clear_removes_uid
+    await LocalStorageService.saveFirebaseUid('uid-to-clear');
+    await LocalStorageService.clear();
+
+    const result = await LocalStorageService.getFirebaseUid();
+
+    expect(result).toBeNull();
+  });
+});

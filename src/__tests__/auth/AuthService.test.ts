@@ -6,6 +6,7 @@
  */
 
 import AuthService from '../../services/AuthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const mockAuth = require('@react-native-firebase/auth');
 
@@ -94,5 +95,61 @@ describe('AuthService', () => {
         'No authenticated user to link',
       );
     });
+  });
+});
+
+describe('AuthService.init', () => {
+  const FIREBASE_UID_KEY = 'auth:firebase_uid';
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    mockAuth().currentUser = null;
+  });
+
+  it('signs in anonymously and saves uid to storage when no session exists', async () => {
+    // test_sign_in_anonymous_saves_uid_to_storage
+    // Storage is empty, no current user → must call signInAnonymously
+    const newUid = 'anon-new-uid';
+    mockAuth().signInAnonymously.mockResolvedValueOnce({
+      user: { uid: newUid, isAnonymous: true },
+    });
+
+    await AuthService.init();
+
+    expect(mockAuth().signInAnonymously).toHaveBeenCalledTimes(1);
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      FIREBASE_UID_KEY,
+      newUid,
+    );
+  });
+
+  it('restores session without calling signInAnonymously when uid is in storage', async () => {
+    // test_restore_session_reads_from_storage
+    // Storage has a uid and Firebase still has a current user
+    await AsyncStorage.setItem(FIREBASE_UID_KEY, 'existing-uid');
+    mockAuth().currentUser = {
+      uid: 'existing-uid',
+      isAnonymous: true,
+      getIdToken: jest.fn().mockResolvedValue('token'),
+    };
+
+    await AuthService.init();
+
+    expect(mockAuth().signInAnonymously).not.toHaveBeenCalled();
+  });
+
+  it('getIdToken returns current token from firebase user', async () => {
+    // test_get_id_token_returns_current_token
+    const expectedToken = 'firebase-token-from-current-user';
+    mockAuth().currentUser = {
+      uid: 'uid-abc',
+      isAnonymous: true,
+      getIdToken: jest.fn().mockResolvedValueOnce(expectedToken),
+    };
+
+    const result = await AuthService.getIdToken();
+
+    expect(result).toBe(expectedToken);
   });
 });
