@@ -2,10 +2,12 @@
 
 from fastapi import FastAPI
 
+from app.middleware.auth import FirebaseAuthMiddleware
 from app.routers.auth import router as auth_router
 
 app = FastAPI(title="ME API", version="0.1.0")
 
+app.add_middleware(FirebaseAuthMiddleware)
 app.include_router(auth_router)
 
 

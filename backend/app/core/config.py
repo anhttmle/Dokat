@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Runtime configuration for the FastAPI backend."""
 
-    firebase_credentials_path: str = ""
+    firebase_credentials_json: str = ""
     database_url: str = "postgresql+asyncpg://localhost/me_dev"
     debug: bool = False
 

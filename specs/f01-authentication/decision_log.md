@@ -141,6 +141,84 @@ và từng test sẽ pass/fail độc lập.
 
 ---
 
+## DL-012: FirebaseAuthMiddleware implement là class, không phải FastAPI dependency
+
+**Date:** 2026-06-20
+**Context:** Task 3.2 nói "implement as FastAPI dependency (`Depends`)" nhưng
+tests từ task 3.1 (đã viết và được chấp nhận) dùng
+`app.add_middleware(FirebaseAuthMiddleware)` và kiểm tra
+`request.state.firebase_uid` — cả hai yếu tố này chỉ hoạt động với
+class-based Starlette middleware, không phải FastAPI dependency function.
+**Decision:** `FirebaseAuthMiddleware` được implement là
+`BaseHTTPMiddleware` subclass. `verify_firebase_token` dependency giữ nguyên
+(chưa xóa) để không làm hỏng các import tiềm năng khác.
+**Consequence:** Tests từ task 3.1 pass 5/5. Nếu sau này cần dùng dependency
+pattern thuần (không ASGI middleware), cần viết tests mới tương ứng.
+
+---
+
+## DL-013: firebase_credentials_path thay bằng firebase_credentials_json trong Settings
+
+**Date:** 2026-06-20
+**Context:** Task 3.2 yêu cầu `firebase.py` đọc credentials từ env
+`FIREBASE_CREDENTIALS_JSON` (JSON string). Field cũ là
+`firebase_credentials_path` (file path) không còn phù hợp với yêu cầu deploy
+trên cloud không có file system.
+**Decision:** Thay `firebase_credentials_path: str = ""` bằng
+`firebase_credentials_json: str = ""` trong `Settings`. `firebase.py` parse
+JSON string bằng `json.loads()` rồi tạo `credentials.Certificate()`.
+**Consequence:** Credentials được truyền qua env var (phù hợp 12-factor app);
+không cần mount file vào container.
+
+---
+
+## DL-014: SQLite in-memory router tests dùng StaticPool + check_same_thread=False
+
+**Date:** 2026-06-20
+**Context:** Task 4.1/4.2 — router tests dùng `TestClient(app)` với SQLite
+in-memory. FastAPI chạy sync route trong worker thread qua
+`anyio.to_thread.run_sync`. Hai vấn đề xuất hiện:
+1. `sqlite3.ProgrammingError: SQLite objects created in a thread can only
+   be used in that same thread` — connection bị block cross-thread.
+2. `OperationalError: no such table: users` — mỗi SQLite in-memory connection
+   có database riêng biệt; worker thread tạo connection mới thấy DB trống.
+**Decision:** Dùng `StaticPool` để SQLAlchemy tái sử dụng đúng một connection
+duy nhất cho toàn bộ engine; kết hợp `check_same_thread=False` để cho phép
+connection đó dùng từ nhiều thread.
+**Consequence:** Tất cả test fixtures dùng SQLite in-memory phải khai báo
+`poolclass=StaticPool` và `connect_args={"check_same_thread": False}`.
+
+---
+
+## DL-015: get_db dependency định nghĩa trong router, sync session
+
+**Date:** 2026-06-20
+**Context:** Task 4.2 yêu cầu endpoint `POST /auth/session` có DB access.
+Config production dùng `database_url = postgresql+asyncpg://...` (async),
+nhưng các services được implement synchronous (không dùng async/await).
+**Decision:** `get_db` là sync generator dependency định nghĩa trong
+`app/routers/auth.py`. Engine production dùng `+asyncpg` URL stripped thành
+sync PostgreSQL URL. Tests override hoàn toàn `get_db` qua
+`app.dependency_overrides`, không cần thay đổi config.
+**Consequence:** Khi migrate sang async (future task), cần refactor
+`get_or_create_user`, `build_session_response` và `get_db` sang async pattern.
+
+---
+
+## DL-016: FirebaseAuthMiddleware được add vào main.py globally
+
+**Date:** 2026-06-20
+**Context:** Task 4.2 yêu cầu endpoint session "dùng FirebaseAuthMiddleware".
+Middleware đã implement là ASGI class (BaseHTTPMiddleware), không phải
+per-route dependency.
+**Decision:** `app.add_middleware(FirebaseAuthMiddleware)` trong `main.py`,
+bảo vệ toàn bộ app (kể cả `/health`). Việc exempt `/health` khỏi auth là
+concern của task khác.
+**Consequence:** Mọi endpoint (kể cả `/health`) đều yêu cầu Firebase token.
+Tests dùng `patch("firebase_admin.auth.verify_id_token")` để bypass middleware.
+
+---
+
 ## DL-003: pytest-asyncio mode = auto
 
 **Date:** 2026-06-18
