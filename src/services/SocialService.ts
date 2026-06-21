@@ -128,6 +128,44 @@ const SocialService = {
       throw new Error(body?.error_code ?? 'REMOVE_FRIEND_FAILED');
     }
   },
+
+  /**
+   * Fetch the current user's friend list (alias for listFriends).
+   *
+   * Design §3.3 — GET /friends
+   */
+  getFriends: async (): Promise<FriendListResult> => {
+    const headers = await _authHeaders();
+    const resp = await fetch(`${BASE_URL}/friends`, {
+      method: 'GET',
+      headers,
+    });
+    if (!resp.ok) {
+      const body = await resp.json();
+      throw new Error(body?.error_code ?? 'LIST_FRIENDS_FAILED');
+    }
+    return resp.json();
+  },
+
+  /**
+   * Register or update FCM device token.
+   *
+   * Design §3.5 — PUT /friends/fcm-token
+   *
+   * @param token - FCM device token string.
+   */
+  updateFCMToken: async (token: string): Promise<void> => {
+    const headers = await _authHeaders();
+    const resp = await fetch(`${BASE_URL}/friends/fcm-token`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ fcm_token: token }),
+    });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body?.error_code ?? 'UPDATE_FCM_TOKEN_FAILED');
+    }
+  },
 };
 
 export default SocialService;

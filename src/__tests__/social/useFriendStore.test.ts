@@ -60,4 +60,15 @@ describe('useFriendStore', () => {
     useFriendStore.getState().removeFriendLocally('friend-1');
     expect(useFriendStore.getState().friends).toEqual([]);
   });
+
+  it('removeFriend removes friend from list optimistically', async () => {
+    useFriendStore.setState({ friends: [sampleFriend] });
+    useFriendStore.getState().removeFriend('friend-1');
+    expect(useFriendStore.getState().friends).toHaveLength(0);
+  });
+
+  it('addFriend appends a friend to the list', () => {
+    useFriendStore.getState().addFriend(sampleFriend);
+    expect(useFriendStore.getState().friends).toEqual([sampleFriend]);
+  });
 });

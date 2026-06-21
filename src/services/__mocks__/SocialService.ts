@@ -9,7 +9,9 @@ const SocialService = {
   generateQR: jest.fn(),
   scanQR: jest.fn(),
   listFriends: jest.fn(),
+  getFriends: jest.fn(),
   removeFriend: jest.fn(),
+  updateFCMToken: jest.fn(),
 };
 
 export default SocialService;

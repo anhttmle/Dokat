@@ -29,6 +29,7 @@ interface FriendState {
   setFriends: (friends: Friend[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  addFriend: (friend: Friend) => void;
   removeFriendLocally: (userId: string) => void;
 
   fetchFriends: () => Promise<void>;
@@ -43,6 +44,9 @@ const useFriendStore = create<FriendState>((set) => ({
   setFriends: (friends) => set({ friends }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
+
+  addFriend: (friend) =>
+    set((state) => ({ friends: [...state.friends, friend] })),
 
   removeFriendLocally: (userId) =>
     set((state) => ({

@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 import SocialService, {
   type GenerateQRResult,
@@ -37,7 +38,23 @@ const AddFriendScreen: React.FC = () => {
     loadQR();
   }, [loadQR]);
 
-  if (loading) {
+  React.useEffect(() => {
+    if (!qrData?.expires_at) {
+      return;
+    }
+    const msRemaining =
+      new Date(qrData.expires_at).getTime() - Date.now();
+    if (msRemaining <= 0) {
+      loadQR();
+      return;
+    }
+    const timer = setTimeout(() => {
+      loadQR();
+    }, msRemaining);
+    return () => clearTimeout(timer);
+  }, [qrData?.expires_at, loadQR]);
+
+  if (loading && !qrData) {
     return <ActivityIndicator testID="loading-indicator" />;
   }
 
@@ -45,9 +62,15 @@ const AddFriendScreen: React.FC = () => {
     <View>
       {error ? (
         <Text testID="error-text">{error}</Text>
-      ) : (
-        <Text testID="qr-token">{qrData?.token ?? ''}</Text>
-      )}
+      ) : qrData ? (
+        <>
+          {loading && <ActivityIndicator testID="loading-indicator" />}
+          <View testID="qr-image">
+            <QRCode value={qrData.deep_link} size={200} />
+          </View>
+          <Text testID="qr-token">{qrData.token}</Text>
+        </>
+      ) : null}
     </View>
   );
 };

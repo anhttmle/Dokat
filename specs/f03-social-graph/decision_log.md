@@ -59,3 +59,30 @@
 **Context:** Task 8.1 requires a `NotificationService` class with `send_new_friend(initiator_id, scanner_name)` that reads `fcm_token` from the DB. The pre-existing `send_friend_notification()` module-level stub was kept in `notification_service.py` (not deleted) because it was introduced by an earlier task; it is no longer imported by the router.
 **Decision:** Added `NotificationService` class to `notification_service.py`. The router now instantiates `NotificationService(db)` and calls `send_new_friend()`. A `try/except` guard in the router wraps the call so that even if the mock (in tests) makes `send_new_friend` raise, the endpoint still returns 201 (best-effort per Design §5.1).
 **Consequence:** `test_scan_qr_success` was updated as a collateral fix to mock `NotificationService` instead of the old `send_friend_notification`. The scanner's `display_name` is now fetched via `get_friend_profile(db, scanner_id)` and passed to the notification service.
+
+---
+
+## DL-F03-08 — SocialService thêm getFriends() và updateFCMToken(); useFriendStore thêm addFriend action
+
+**Date:** 2026-06-21
+**Context:** Task 9.1 yêu cầu `getFriends()`, `updateFCMToken(token)` trong SocialService và `addFriend` action trong useFriendStore. SocialService đã có `listFriends()` từ trước.
+**Decision:** Thêm `getFriends()` là method riêng biệt (không rename `listFriends()`) để tránh breaking change. `updateFCMToken()` gọi `PUT /friends/fcm-token` khớp với endpoint đã có trong backend (DL-F03-05). `addFriend` action trong useFriendStore append vào cuối list (không sort) vì danh sách tối đa 20 phần tử.
+**Consequence:** Manual mock `__mocks__/SocialService.ts` cũng được cập nhật thêm `getFriends` và `updateFCMToken` để test dùng `jest.mock()` hoạt động đúng.
+
+---
+
+## DL-F03-09 — AddFriendScreen dùng setTimeout thay vì setInterval cho countdown auto-refresh
+
+**Date:** 2026-06-21
+**Context:** Task 9.2 yêu cầu `AddFriendScreen` tự động gọi lại `generateQR()` khi countdown về 0. Có hai cách: (1) `setInterval` mỗi 1s để update UI countdown + trigger khi hết giờ, (2) `setTimeout` với `msRemaining` tính từ `expires_at`.
+**Decision:** Dùng `setTimeout` với thời gian chính xác (`msRemaining = expires_at - now`) vì đơn giản hơn và test dễ kiểm soát hơn (chỉ cần `advanceTimersByTime(msRemaining + 100)`). Không render countdown UI vì task spec không yêu cầu test cho nó.
+**Consequence:** `AddFriendScreen` không hiển thị số giây đếm ngược trên màn hình (chỉ auto-refresh ngầm). Nếu UX cần countdown visible, cần thêm `setInterval` riêng trong task sau.
+
+---
+
+## DL-F03-10 — AddFriendScreen test dùng `jest.mock('react-native-qrcode-svg', ...)` inline thay vì file mock riêng
+
+**Date:** 2026-06-21
+**Context:** `react-native-qrcode-svg` cần `react-native-svg` (peer dep) và không chạy được trong Jest environment không có native modules.
+**Decision:** Mock inline trong test file bằng `jest.mock('react-native-qrcode-svg', () => View)` thay vì tạo file `__mocks__/react-native-qrcode-svg.ts`. Không cần thêm vào `transformIgnorePatterns` vì mock hoàn toàn thay thế module. `testID="qr-image"` đặt trên `View` wrapper bên ngoài `<QRCode>` component để `findByTestId` hoạt động ổn định.
+**Consequence:** Test của `AddFriendScreen` không kiểm tra nội dung QR (giá trị SVG thực). Nếu cần kiểm tra `value` prop được truyền đúng vào `QRCode`, cần spy thêm trong test sau.

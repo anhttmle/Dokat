@@ -120,4 +120,33 @@ describe('SocialService', () => {
       );
     });
   });
+
+  describe('updateFCMToken', () => {
+    it('calls PUT /friends/fcm-token with token and resolves on 204', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 204 });
+
+      await expect(
+        SocialService.updateFCMToken('fcm-token-abc'),
+      ).resolves.toBeUndefined();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/friends/fcm-token'),
+        expect.objectContaining({ method: 'PUT' }),
+      );
+    });
+  });
+
+  describe('getFriends', () => {
+    it('calls GET /friends and returns friend list', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(FRIENDS_LIST_STUB));
+
+      const result = await SocialService.getFriends();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/friends'),
+        expect.objectContaining({ method: 'GET' }),
+      );
+      expect(result.friends).toHaveLength(1);
+    });
+  });
 });
