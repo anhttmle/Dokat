@@ -29,7 +29,13 @@
 
 ---
 
-## DL-F03-03 — FCM token endpoint placed in friends router, not profile router
+## DL-F03-05 — `list_friends()` renamed key from `friend_id` to `user_id` and added profile JOIN
+
+**Date:** 2026-06-21
+**Context:** Task 6.1 requires `list_friends()` to JOIN with the `users` table and return `display_name`, `avatar_url` alongside the friend's UUID. The original implementation returned only `friend_id` and `friendship_created_at`.
+**Decision:** Renamed the key `friend_id` → `user_id` in the return dict to match Design §3.3 response format. Added a per-row `db.query(User)` lookup (N+1) rather than a SQL JOIN, to keep the implementation simple for MVP scope (max 20 friends per user, so at most 20 extra queries per request).
+**Consequence:** The router's `GET /friends` handler was updated to use `f["user_id"]` directly (removing the manual `friend_id → user_id` mapping). If performance becomes a concern at scale, replace the N+1 with a single JOIN query.
+
 
 **Date:** 2026-06-21
 **Context:** Design §3.5 specifies `PUT /profile/me/fcm-token` under the profile prefix. However, the FCM token is only needed for F03 (friend notifications), and `test_router_friends.py` tests it alongside other F03 endpoints.

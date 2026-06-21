@@ -117,15 +117,19 @@ def create_friendship(
 
 
 def list_friends(db: Session, user_id: str) -> list[dict]:
-    """Return all friends of *user_id* with friendship metadata.
+    """Return all friends of *user_id* with profile and metadata.
+
+    JOINs with the users table to include ``display_name`` and
+    ``avatar_url`` for each friend.
 
     Args:
         db: Active SQLAlchemy session.
         user_id: UUID string of the requesting user.
 
     Returns:
-        List of dicts with keys ``friend_id`` and
-        ``friendship_created_at``, ordered by most recent first.
+        List of dicts with keys ``user_id``, ``display_name``,
+        ``avatar_url``, and ``friendship_created_at``, ordered
+        by most recent first.
     """
     uid = uuid.UUID(user_id)
     rows = (
@@ -139,12 +143,19 @@ def list_friends(db: Session, user_id: str) -> list[dict]:
 
     result = []
     for row in rows:
-        friend_id = (
+        friend_uuid = (
             row.user_id_b if row.user_id_a == uid else row.user_id_a
         )
+        friend_user = db.query(User).filter(User.id == friend_uuid).first()
         result.append(
             {
-                "friend_id": str(friend_id),
+                "user_id": str(friend_uuid),
+                "display_name": (
+                    friend_user.display_name if friend_user else None
+                ),
+                "avatar_url": (
+                    friend_user.avatar_url if friend_user else None
+                ),
                 "friendship_created_at": row.created_at,
             }
         )

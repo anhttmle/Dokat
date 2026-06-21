@@ -296,12 +296,12 @@ def test_scan_qr_limit_scanner(client: TestClient) -> None:
 
 
 def test_get_friends_list(client: TestClient) -> None:
-    """200 with friends list and total."""
+    """200 with friends list, correct total and user_id."""
     with patch(
         "app.routers.friends.list_friends",
         return_value=[
             {
-                "friend_id": "abc-uuid",
+                "user_id": "abc-uuid",
                 "display_name": "Tran Thi B",
                 "avatar_url": None,
                 "friendship_created_at": "2026-06-20T10:00:00Z",
@@ -312,8 +312,15 @@ def test_get_friends_list(client: TestClient) -> None:
 
     assert resp.status_code == 200
     body = resp.json()
-    assert "friends" in body
-    assert "total" in body
+    assert body["total"] == 1
+    assert body["friends"][0]["user_id"] == "abc-uuid"
+
+
+def test_get_friends_unauthenticated() -> None:
+    """Missing Authorization header returns 401."""
+    with TestClient(app, raise_server_exceptions=False) as c:
+        resp = c.get("/friends")
+    assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------

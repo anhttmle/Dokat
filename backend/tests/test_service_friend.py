@@ -172,7 +172,8 @@ def test_list_friends_empty(db_session: Session) -> None:
 
 
 def test_list_friends_bidirectional(db_session: Session) -> None:
-    """Both users can see each other in their friend lists."""
+    """Both users see each other; result contains user_id, display_name,
+    avatar_url, friendship_created_at."""
     a = _make_user(db_session, firebase_uid="uid-bi-A")
     b = _make_user(db_session, firebase_uid="uid-bi-B")
     _make_friendship(db_session, a, b)
@@ -180,8 +181,14 @@ def test_list_friends_bidirectional(db_session: Session) -> None:
     a_friends = list_friends(db_session, str(a.id))
     b_friends = list_friends(db_session, str(b.id))
 
-    assert any(str(f["friend_id"]) == str(b.id) for f in a_friends)
-    assert any(str(f["friend_id"]) == str(a.id) for f in b_friends)
+    assert len(a_friends) == 1
+    assert str(a_friends[0]["user_id"]) == str(b.id)
+    assert "display_name" in a_friends[0]
+    assert "avatar_url" in a_friends[0]
+    assert "friendship_created_at" in a_friends[0]
+
+    assert len(b_friends) == 1
+    assert str(b_friends[0]["user_id"]) == str(a.id)
 
 
 # ---------------------------------------------------------------------------

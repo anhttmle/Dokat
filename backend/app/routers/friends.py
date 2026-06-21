@@ -162,9 +162,9 @@ def get_friends(
 
     items = [
         {
-            "user_id": f["friend_id"],
-            "display_name": None,
-            "avatar_url": None,
+            "user_id": f["user_id"],
+            "display_name": f.get("display_name"),
+            "avatar_url": f.get("avatar_url"),
             "friendship_created_at": (
                 f["friendship_created_at"].isoformat()
                 if hasattr(f["friendship_created_at"], "isoformat")
