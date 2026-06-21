@@ -29,7 +29,7 @@ const RemoveFriendDialog: React.FC<Props> = ({
           {`Xóa ${friendName ?? 'người dùng này'} khỏi danh sách bạn bè?`}
         </Text>
         <TouchableOpacity onPress={onConfirm} testID="confirm-button">
-          <Text>Xác nhận</Text>
+          <Text>Xóa</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onCancel} testID="cancel-button">
           <Text>Hủy</Text>

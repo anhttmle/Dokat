@@ -1,47 +1,57 @@
 /**
  * Tests for FriendListScreen — displays friends and triggers removal.
  *
- * Written TDD-style; tests are expected to FAIL until the screen is
- * implemented in a later F03 task.
- *
- * Refs: Design §4.2, AC-F03-9, AC-F03-10
+ * Refs: Design §4.2, FR-9, FR-10, FR-11, AC-F03-9, AC-F03-10
  */
 
 import React from 'react';
-import { render, act } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 
 import FriendListScreen from '../../screens/FriendListScreen';
 
 jest.mock('../../services/SocialService');
+// useFriendStore: não mockado — Zustand é pure JS, funciona bem em Jest.
+// FriendListScreen só usa removeFriendLocally (ação de estado puro, sem API).
 
 describe('FriendListScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('renders without crashing', async () => {
+  it('renders without crashing', () => {
     const SocialService = require('../../services/SocialService').default;
-    SocialService.listFriends.mockResolvedValueOnce({
-      friends: [],
-      total: 0,
-    });
+    SocialService.getFriends.mockResolvedValue({ friends: [], total: 0 });
 
-    await act(async () => {
-      render(<FriendListScreen />);
-    });
+    render(<FriendListScreen />);
   });
 
-  it('calls listFriends on mount', async () => {
+  it('fetches and renders friend list on mount', async () => {
     const SocialService = require('../../services/SocialService').default;
-    SocialService.listFriends.mockResolvedValueOnce({
-      friends: [],
-      total: 0,
+    SocialService.getFriends.mockResolvedValue({
+      friends: [
+        {
+          user_id: 'u1',
+          display_name: 'Alice',
+          avatar_url: null,
+          friendship_created_at: '2026-06-21T00:00:00Z',
+        },
+      ],
+      total: 1,
     });
 
-    await act(async () => {
-      render(<FriendListScreen />);
-    });
+    const { findByText } = render(<FriendListScreen />);
 
-    expect(SocialService.listFriends).toHaveBeenCalledTimes(1);
+    await findByText('Alice');
+  });
+
+  it('calls getFriends on mount', async () => {
+    const SocialService = require('../../services/SocialService').default;
+    SocialService.getFriends.mockResolvedValue({ friends: [], total: 0 });
+
+    render(<FriendListScreen />);
+
+    await act(async () => {});
+
+    expect(SocialService.getFriends).toHaveBeenCalledTimes(1);
   });
 });

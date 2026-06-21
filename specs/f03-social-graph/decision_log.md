@@ -80,6 +80,33 @@
 
 ---
 
+## DL-F03-11 — QRScannerScreen dùng View với custom prop `onRead` thay vì camera library thực
+
+**Date:** 2026-06-21
+**Context:** Task 10.1 yêu cầu camera scanner với `testID="qr-scanner"` và `onRead` callback để test gọi trực tiếp qua `getByTestId('qr-scanner').props.onRead(url)`. Không có camera library (expo-camera, react-native-vision-camera) trong `package.json`.
+**Decision:** Dùng `<View {...scannerProps} />` với `scannerProps = { testID: 'qr-scanner', onRead: handleRead } as any`. RNTL's test renderer (React test renderer) capture toàn bộ props bao gồm custom prop không phải ViewProps — `getByTestId(...).props.onRead` truy cập được trực tiếp. Production `View` ignore unknown props silently.
+**Consequence:** Camera thực sẽ cần tích hợp sau (thay `View` bằng camera component thực). Test không kiểm tra camera permission hay native UI — chỉ test business logic (token extraction + API call). Comment `as any` dùng eslint-disable cho rõ ràng.
+
+---
+
+## DL-F03-12 — FriendListScreen gọi `SocialService.getFriends()` trực tiếp thay vì `useFriendStore.fetchFriends()`
+
+**Date:** 2026-06-21
+**Context:** Task 10.2 spec yêu cầu `FriendListScreen` gọi `SocialService.getFriends()` khi mount; test kiểm tra `mockSocialService.getFriends` được gọi. `useFriendStore.fetchFriends()` trước đó gọi `listFriends` không phải `getFriends`.
+**Decision:** `FriendListScreen` dùng local state (`useState<FriendItem[]>`) + gọi `SocialService.getFriends()` trực tiếp trong `useEffect`. `useFriendStore` vẫn được dùng cho `removeFriendLocally` (optimistic update khi xóa bạn). Không rename/xóa `fetchFriends` trong store để tránh breaking change các component khác.
+**Consequence:** `FriendListScreen` và `useFriendStore` có thể duplicate dữ liệu nếu cả hai được render trong cùng navigation. MVP scope: tối đa 20 bạn, không cần sync store phức tạp.
+
+---
+
+## DL-F03-13 — RemoveFriendDialog đổi nút "Xác nhận" → "Xóa"
+
+**Date:** 2026-06-21
+**Context:** Task 10.2 test spec dùng `getByText('Xóa')` để press nút confirm. Component trước có text "Xác nhận".
+**Decision:** Đổi text nút confirm thành "Xóa" để match test spec và UX rõ ràng hơn (hành động là xóa bạn, không phải xác nhận chung chung).
+**Consequence:** Không có component nào khác dùng `RemoveFriendDialog` nên không có breaking change.
+
+---
+
 ## DL-F03-10 — AddFriendScreen test dùng `jest.mock('react-native-qrcode-svg', ...)` inline thay vì file mock riêng
 
 **Date:** 2026-06-21
