@@ -1,30 +1,43 @@
 /**
  * PetAIService — on-device pet recognition (species + gender).
  *
- * Skeleton for F02 task 1.2. The concrete inference framework
- * (TFLite / CoreML / ONNX) is undecided (DL-F02-02); this module
- * exposes the stable interface the UI depends on.
+ * Applies gender confidence threshold (≥ 0.70) before exposing the
+ * result to callers; a lower-confidence gender prediction is omitted
+ * (AC-F02-3, FR-8). The underlying model runner is injected via
+ * _petModelStub so it can be mocked in tests independently.
  */
 
 import type { PetGender, PetSpecies } from '../ProfileService';
+import { runModel } from './_petModelStub';
+
+const GENDER_CONFIDENCE_THRESHOLD = 0.70;
 
 export interface AIInferenceResult {
   species: PetSpecies;
-  gender: PetGender;
   confidence: number;
+  /** Defined only when gender_confidence >= 0.70 (FR-8). */
+  gender?: PetGender;
+  gender_confidence?: number;
 }
-
-const NOT_IMPLEMENTED = 'PetAIService not implemented yet';
 
 const PetAIService = {
   /**
    * Run on-device inference on an image and return predicted
-   * species, gender, and a confidence score in [0, 1].
+   * species and (conditionally) gender.
    *
-   * @param _imageUri - Local URI of the captured/selected image.
+   * @param imageUri - Local URI of the captured/selected image.
    */
-  infer: async (_imageUri: string): Promise<AIInferenceResult> => {
-    throw new Error(NOT_IMPLEMENTED);
+  infer: async (imageUri: string): Promise<AIInferenceResult> => {
+    const raw = await runModel(imageUri);
+    const result: AIInferenceResult = {
+      species: raw.species,
+      confidence: raw.confidence,
+      gender_confidence: raw.gender_confidence,
+    };
+    if (raw.gender_confidence >= GENDER_CONFIDENCE_THRESHOLD) {
+      result.gender = raw.gender;
+    }
+    return result;
   },
 };
 

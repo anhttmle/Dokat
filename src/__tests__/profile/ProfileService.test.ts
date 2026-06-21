@@ -124,5 +124,44 @@ describe('ProfileService', () => {
       expect(result.id).toBe('pet-1');
       expect(result.species).toBe('dog');
     });
+
+    it('calls POST /pets with correct body fields', async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse(
+          {
+            id: 'pet-2',
+            name: 'Luna',
+            species: 'cat',
+            gender: 'female',
+            birthdate: null,
+            avatar_url:
+              'https://cdn.pawsnap.app/avatars/pets/user-1/luna.jpg',
+            created_at: '2026-06-21T10:00:00Z',
+          },
+          201,
+        ),
+      );
+
+      await ProfileService.createPet({
+        name: 'Luna',
+        species: 'cat',
+        gender: 'female',
+        avatarUrl:
+          'https://cdn.pawsnap.app/avatars/pets/user-1/luna.jpg',
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toMatch(/\/pets$/);
+      expect(options?.method).toBe('POST');
+
+      const body = JSON.parse(options?.body ?? '{}');
+      expect(body.name).toBe('Luna');
+      expect(body.species).toBe('cat');
+      expect(body.gender).toBe('female');
+      expect(body.avatar_url).toBe(
+        'https://cdn.pawsnap.app/avatars/pets/user-1/luna.jpg',
+      );
+    });
   });
 });

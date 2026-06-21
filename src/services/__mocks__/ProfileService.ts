@@ -14,6 +14,8 @@ const ProfileService = {
   createPet: jest.fn(),
   getPet: jest.fn(),
   patchPet: jest.fn(),
+  updatePet: jest.fn(),
+  getPetAvatarUploadUrl: jest.fn(),
   linkPhoto: jest.fn(),
   getPetPhotos: jest.fn(),
 };

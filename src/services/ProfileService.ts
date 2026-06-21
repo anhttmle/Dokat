@@ -231,6 +231,17 @@ const ProfileService = {
     return parsePet(data);
   },
 
+  /** Alias for patchPet — used by usePetStore.updatePet. */
+  updatePet: async (petId: string, input: PatchPetInput): Promise<Pet> => {
+    return ProfileService.patchPet(petId, input);
+  },
+
+  getPetAvatarUploadUrl: async (
+    contentType: string,
+  ): Promise<PresignedUrl> => {
+    return ProfileService.getPresignedUrl('pet', contentType);
+  },
+
   linkPhoto: async (petId: string, photoId: string): Promise<void> => {
     const headers = await authHeaders();
     await fetch(`${BASE_URL}/pets/${petId}/link-photo`, {

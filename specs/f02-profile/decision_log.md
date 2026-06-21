@@ -220,6 +220,41 @@ dev/test hiện tại. Khi cần multi-env, sẽ tách thành module config riê
 
 ---
 
+## DL-F02-17: PetAIService tách internal model runner thành `_petModelStub`
+
+**Ngày:** 2026-06-21
+**Quyết định:** Logic inference của `PetAIService.infer` tách thành
+hai layer: `_petModelStub.ts` export hàm `runModel` (raw model
+output, luôn bao gồm `gender_confidence`), và `PetAIService.infer`
+áp dụng threshold `>= 0.70` trước khi expose ra ngoài.
+**Lý do:** Tests cần kiểm soát raw model output độc lập để test
+cả hai nhánh (gender trả về vs. undefined). Nếu `infer` là blackbox
+hoàn toàn (không mock được phần bên trong), không thể viết test
+riêng cho từng nhánh mà không làm hỏng thiết kế public interface.
+Tách thành module riêng cho phép `jest.mock('_petModelStub')` mà
+không đụng đến public API của `PetAIService`.
+**Ràng buộc:** `_petModelStub` là internal module; prefix `_` báo
+hiệu không import trực tiếp từ ngoài package `services/ai`.
+**Phát sinh trong:** Task 8.1 + 8.2.
+
+---
+
+## DL-F02-18: `CreatePetProfileSheet` nhận `imageUri` prop để skip Step 1
+
+**Ngày:** 2026-06-21
+**Quyết định:** Component nhận prop `imageUri?: string`. Khi được
+cung cấp, component bỏ qua Step 1 (chọn ảnh) và chạy AI inference
+ngay khi mount. Khi không có `imageUri`, hiển thị Step 1 để user
+chọn ảnh.
+**Lý do:** Repo chưa có thư viện image picker; việc mock picker
+trong tests phức tạp và không thuộc phạm vi task này. Prop
+`imageUri` cho phép tests và camera flow (F04) cung cấp ảnh
+sẵn có mà không cần mock picker. Pattern này không ảnh hưởng
+đến UX thực tế vì F04 sẽ truyền URI sau khi capture.
+**Phát sinh trong:** Task 8.1 + 8.2.
+
+---
+
 ## DL-F02-08: ProfileService dùng `fetch` làm HTTP transport
 
 **Ngày:** 2026-06-21
