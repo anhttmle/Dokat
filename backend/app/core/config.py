@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     cdn_base_url: str = "https://cdn.pawsnap.app"
     aws_region: str = "us-east-1"
 
+    redis_url: str = "redis://localhost:6379/0"
+    deep_link_base: str = "https://petapp.example.com"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

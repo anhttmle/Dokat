@@ -10,3 +10,6 @@ pytest
 pytest-asyncio
 httpx
 moto[s3]
+redis[hiredis]
+fakeredis
+lupa

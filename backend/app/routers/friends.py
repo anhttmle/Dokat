@@ -1,0 +1,209 @@
+"""Friends router — QR-based friend management endpoints.
+
+Endpoints (Design §3):
+  POST /friends/qr/generate        — create a new QR OTP
+  POST /friends/qr/scan            — scan QR and create friendship
+  GET  /friends                    — list current user's friends
+  DELETE /friends/{friend_user_id} — remove a friend
+  PUT  /friends/fcm-token          — register / update FCM device token
+
+Refs: Design §3, §5.1
+"""
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+
+from app.core.redis import get_redis_client
+from app.models.user import User
+from app.routers.auth import get_db
+from app.schemas.friend import (
+    FCMTokenRequest,
+    GenerateQRResponse,
+    ScanQRRequest,
+)
+from app.services.friend_service import (
+    AlreadyFriendsError,
+    FriendLimitError,
+    SelfFriendError,
+    UserNotFoundError,
+    create_friendship,
+    delete_friendship,
+    get_friend_profile,
+    list_friends,
+    save_fcm_token,
+)
+from app.services.notification_service import send_friend_notification
+from app.services.otp_service import (
+    OTPExpiredError,
+    OTPUsedError,
+    consume_otp,
+    generate_otp,
+)
+
+router = APIRouter(prefix="/friends", tags=["friends"])
+
+
+def _get_user_id(request: Request, db: Session) -> str:
+    """Resolve firebase_uid → internal user UUID string."""
+    firebase_uid: str = request.state.firebase_uid
+    user = (
+        db.query(User)
+        .filter(User.firebase_uid == firebase_uid)
+        .first()
+    )
+    if user is None:
+        raise UserNotFoundError(f"No user for firebase_uid={firebase_uid!r}")
+    return str(user.id)
+
+
+@router.post("/qr/generate", response_model=GenerateQRResponse)
+def generate_qr(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Generate a new QR OTP for the authenticated user."""
+    user_id = _get_user_id(request, db)
+    redis_client = get_redis_client()
+    result = generate_otp(redis_client, user_id)
+    return JSONResponse(content=result)
+
+
+@router.post("/qr/scan", status_code=201)
+def scan_qr(
+    payload: ScanQRRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Scan a QR token and create a friendship if valid."""
+    scanner_id = _get_user_id(request, db)
+    redis_client = get_redis_client()
+
+    try:
+        otp_data = consume_otp(redis_client, payload.token)
+    except OTPExpiredError:
+        return JSONResponse(
+            status_code=410,
+            content={
+                "error_code": "QR_EXPIRED",
+                "message": "QR đã hết hạn",
+            },
+        )
+    except OTPUsedError:
+        return JSONResponse(
+            status_code=410,
+            content={
+                "error_code": "QR_USED",
+                "message": "QR đã được sử dụng",
+            },
+        )
+
+    initiator_id: str = otp_data["initiator_id"]
+
+    try:
+        friendship = create_friendship(
+            db, initiator_id=initiator_id, scanner_id=scanner_id
+        )
+    except SelfFriendError:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error_code": "SELF_FRIEND",
+                "message": "Không thể kết bạn với chính mình",
+            },
+        )
+    except AlreadyFriendsError:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error_code": "ALREADY_FRIENDS",
+                "message": "Hai người đã là bạn bè",
+            },
+        )
+    except FriendLimitError as exc:
+        error_code = (
+            "FRIEND_LIMIT_INITIATOR"
+            if exc.side == "initiator"
+            else "FRIEND_LIMIT_SCANNER"
+        )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error_code": error_code,
+                "message": "Đã đạt giới hạn 20 bạn bè",
+            },
+        )
+
+    friend_profile = get_friend_profile(db, initiator_id)
+    send_friend_notification(
+        initiator_fcm_token=None,
+        scanner_display_name=None,
+    )
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "friendship_id": str(friendship.id),
+            "friend": friend_profile,
+            "created_at": friendship.created_at.isoformat(),
+        },
+    )
+
+
+@router.get("")
+def get_friends(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Return the authenticated user's friend list."""
+    user_id = _get_user_id(request, db)
+    friends = list_friends(db, user_id)
+
+    items = [
+        {
+            "user_id": f["friend_id"],
+            "display_name": None,
+            "avatar_url": None,
+            "friendship_created_at": (
+                f["friendship_created_at"].isoformat()
+                if hasattr(f["friendship_created_at"], "isoformat")
+                else f["friendship_created_at"]
+            ),
+        }
+        for f in friends
+    ]
+
+    return JSONResponse(content={"friends": items, "total": len(items)})
+
+
+@router.delete("/{friend_user_id}", status_code=204)
+def remove_friend(
+    friend_user_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Remove a friendship edge (idempotent)."""
+    user_id = _get_user_id(request, db)
+    delete_friendship(db, user_id, friend_user_id)
+    return JSONResponse(status_code=204, content=None)
+
+
+@router.put("/fcm-token", status_code=204)
+def update_fcm_token(
+    payload: FCMTokenRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Register or update the FCM device token for the current user."""
+    user_id = _get_user_id(request, db)
+    try:
+        save_fcm_token(db, user_id, payload.fcm_token)
+    except UserNotFoundError:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error_code": "USER_NOT_FOUND",
+                "message": "Người dùng không tồn tại",
+            },
+        )
+    return JSONResponse(status_code=204, content=None)
