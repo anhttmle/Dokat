@@ -1,9 +1,13 @@
 /**
  * ProfileService — backend API client for owner and pet profiles.
  *
- * Skeleton for F02 task 1.2; method bodies land in later tasks.
- * Mirrors the object-literal style of AuthService (Design §4.1).
+ * All requests attach a Firebase ID token via AuthService.getIdToken()
+ * (DL-F02-08). HTTP transport is global fetch.
  */
+
+import AuthService from './AuthService';
+
+const BASE_URL = 'http://localhost:8000';
 
 export type PetSpecies = 'dog' | 'cat';
 export type PetGender = 'male' | 'female' | 'unknown';
@@ -61,55 +65,213 @@ export interface PetPhotosPage {
   hasMore: boolean;
 }
 
-const NOT_IMPLEMENTED = 'ProfileService not implemented yet';
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await AuthService.getIdToken();
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseOwnerProfile(data: any): OwnerProfile {
+  return {
+    userId: data.user_id,
+    displayName: data.display_name,
+    avatarUrl: data.avatar_url,
+    isAnonymous: data.is_anonymous,
+    providers: data.providers,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parsePet(data: any): Pet {
+  return {
+    id: data.id,
+    name: data.name,
+    species: data.species,
+    gender: data.gender,
+    birthdate: data.birthdate ?? null,
+    avatarUrl: data.avatar_url ?? null,
+    createdAt: data.created_at,
+  };
+}
 
 const ProfileService = {
   getOwnerProfile: async (): Promise<OwnerProfile> => {
-    throw new Error(NOT_IMPLEMENTED);
+    const headers = await authHeaders();
+    const res = await fetch(`${BASE_URL}/profile/me`, { headers });
+    const data = await res.json();
+    return parseOwnerProfile(data);
   },
 
   patchOwnerProfile: async (
-    _input: PatchOwnerProfileInput,
+    input: PatchOwnerProfileInput,
   ): Promise<OwnerProfile> => {
-    throw new Error(NOT_IMPLEMENTED);
+    const headers = await authHeaders();
+    const body: Record<string, string | null> = {};
+    if (input.displayName !== undefined) {
+      body.display_name = input.displayName;
+    }
+    if (input.avatarUrl !== undefined) {
+      body.avatar_url = input.avatarUrl;
+    }
+    const res = await fetch(`${BASE_URL}/profile/me`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return parseOwnerProfile(data);
+  },
+
+  getOwnerAvatarUploadUrl: async (
+    contentType: string,
+  ): Promise<PresignedUrl> => {
+    const headers = await authHeaders();
+    const res = await fetch(`${BASE_URL}/profile/me/avatar/upload-url`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ content_type: contentType }),
+    });
+    const data = await res.json();
+    return {
+      uploadUrl: data.upload_url,
+      objectKey: data.object_key,
+      cdnUrl: data.cdn_url,
+      expiresIn: data.expires_in,
+    };
   },
 
   getPresignedUrl: async (
-    _scope: 'owner' | 'pet',
-    _contentType: string,
+    scope: 'owner' | 'pet',
+    contentType: string,
   ): Promise<PresignedUrl> => {
-    throw new Error(NOT_IMPLEMENTED);
+    const endpoint =
+      scope === 'owner'
+        ? '/profile/me/avatar/upload-url'
+        : '/pets/avatar/upload-url';
+    const headers = await authHeaders();
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ content_type: contentType }),
+    });
+    const data = await res.json();
+    return {
+      uploadUrl: data.upload_url,
+      objectKey: data.object_key,
+      cdnUrl: data.cdn_url,
+      expiresIn: data.expires_in,
+    };
   },
 
   listPets: async (): Promise<Pet[]> => {
-    throw new Error(NOT_IMPLEMENTED);
+    const headers = await authHeaders();
+    const res = await fetch(`${BASE_URL}/pets`, { headers });
+    const data = await res.json();
+    return data.pets.map(parsePet);
   },
 
-  createPet: async (_input: CreatePetInput): Promise<Pet> => {
-    throw new Error(NOT_IMPLEMENTED);
+  createPet: async (input: CreatePetInput): Promise<Pet> => {
+    const headers = await authHeaders();
+    const body: Record<string, unknown> = {
+      name: input.name,
+      species: input.species,
+    };
+    if (input.gender !== undefined) {
+      body.gender = input.gender;
+    }
+    if (input.birthdate !== undefined) {
+      body.birthdate = input.birthdate;
+    }
+    if (input.avatarUrl !== undefined) {
+      body.avatar_url = input.avatarUrl;
+    }
+    const res = await fetch(`${BASE_URL}/pets`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return parsePet(data);
   },
 
-  getPet: async (_petId: string): Promise<Pet> => {
-    throw new Error(NOT_IMPLEMENTED);
+  getPet: async (petId: string): Promise<Pet> => {
+    const headers = await authHeaders();
+    const res = await fetch(`${BASE_URL}/pets/${petId}`, { headers });
+    const data = await res.json();
+    return parsePet(data);
   },
 
-  patchPet: async (
-    _petId: string,
-    _input: PatchPetInput,
-  ): Promise<Pet> => {
-    throw new Error(NOT_IMPLEMENTED);
+  patchPet: async (petId: string, input: PatchPetInput): Promise<Pet> => {
+    const headers = await authHeaders();
+    const body: Record<string, unknown> = {};
+    if (input.name !== undefined) {
+      body.name = input.name;
+    }
+    if (input.species !== undefined) {
+      body.species = input.species;
+    }
+    if (input.gender !== undefined) {
+      body.gender = input.gender;
+    }
+    if (input.birthdate !== undefined) {
+      body.birthdate = input.birthdate;
+    }
+    if (input.avatarUrl !== undefined) {
+      body.avatar_url = input.avatarUrl;
+    }
+    const res = await fetch(`${BASE_URL}/pets/${petId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return parsePet(data);
   },
 
-  linkPhoto: async (_petId: string, _photoId: string): Promise<void> => {
-    throw new Error(NOT_IMPLEMENTED);
+  linkPhoto: async (petId: string, photoId: string): Promise<void> => {
+    const headers = await authHeaders();
+    await fetch(`${BASE_URL}/pets/${petId}/link-photo`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ photo_id: photoId }),
+    });
   },
 
   getPetPhotos: async (
-    _petId: string,
-    _limit?: number,
-    _before?: string,
+    petId: string,
+    limit?: number,
+    before?: string,
   ): Promise<PetPhotosPage> => {
-    throw new Error(NOT_IMPLEMENTED);
+    const headers = await authHeaders();
+    const params = new URLSearchParams();
+    if (limit !== undefined) {
+      params.set('limit', String(limit));
+    }
+    if (before !== undefined) {
+      params.set('before', before);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(
+      `${BASE_URL}/pets/${petId}/photos${query}`,
+      { headers },
+    );
+    const data = await res.json();
+    return {
+      petId: data.pet_id,
+      photos: data.photos.map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => ({
+          photoId: p.photo_id,
+          cdnUrl: p.cdn_url,
+          takenAt: p.taken_at ?? null,
+        }),
+      ),
+      nextCursor: data.next_cursor ?? null,
+      hasMore: data.has_more,
+    };
   },
 };
 

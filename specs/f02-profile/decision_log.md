@@ -208,6 +208,18 @@ nhận được `2026-06-20T10:00:00 00:00` → `fromisoformat` fail với
 
 ---
 
+## DL-F02-16: BASE_URL hardcode `http://localhost:8000` trong ProfileService
+
+**Ngày:** 2026-06-21
+**Quyết định:** `BASE_URL` trong `ProfileService.ts` được hardcode là
+`http://localhost:8000` thay vì đọc từ biến môi trường.
+**Lý do:** Repo chưa có cơ chế config env cho React Native client
+(chưa dùng `react-native-config` hay tương đương). Hardcode đủ cho
+dev/test hiện tại. Khi cần multi-env, sẽ tách thành module config riêng.
+**Phát sinh trong:** Task 7.2.
+
+---
+
 ## DL-F02-08: ProfileService dùng `fetch` làm HTTP transport
 
 **Ngày:** 2026-06-21

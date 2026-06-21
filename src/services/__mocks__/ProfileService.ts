@@ -8,6 +8,7 @@
 const ProfileService = {
   getOwnerProfile: jest.fn(),
   patchOwnerProfile: jest.fn(),
+  getOwnerAvatarUploadUrl: jest.fn(),
   getPresignedUrl: jest.fn(),
   listPets: jest.fn(),
   createPet: jest.fn(),

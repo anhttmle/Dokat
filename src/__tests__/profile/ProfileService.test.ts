@@ -24,6 +24,14 @@ const jsonResponse = (body: unknown, status = 200) => ({
   json: async () => body,
 });
 
+const OWNER_PROFILE_STUB = {
+  user_id: 'user-1',
+  display_name: 'Nguyen Van A',
+  avatar_url: null,
+  is_anonymous: false,
+  providers: ['google'],
+};
+
 describe('ProfileService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -31,16 +39,20 @@ describe('ProfileService', () => {
   });
 
   describe('getOwnerProfile', () => {
+    it('calls GET /profile/me with Authorization header', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(OWNER_PROFILE_STUB));
+
+      await ProfileService.getOwnerProfile();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toMatch(/\/profile\/me$/);
+      expect(options?.method ?? 'GET').toBe('GET');
+      expect(options?.headers?.Authorization).toBe('Bearer mock-token');
+    });
+
     it('returns the parsed owner profile', async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          user_id: 'user-1',
-          display_name: 'Nguyen Van A',
-          avatar_url: null,
-          is_anonymous: false,
-          providers: ['google'],
-        }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse(OWNER_PROFILE_STUB));
 
       const result = await ProfileService.getOwnerProfile();
 
@@ -51,14 +63,30 @@ describe('ProfileService', () => {
   });
 
   describe('patchOwnerProfile', () => {
+    it('calls PATCH /profile/me and body only contains passed fields', async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          ...OWNER_PROFILE_STUB,
+          display_name: 'New Name',
+        }),
+      );
+
+      await ProfileService.patchOwnerProfile({ displayName: 'New Name' });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toMatch(/\/profile\/me$/);
+      expect(options?.method).toBe('PATCH');
+      const body = JSON.parse(options?.body ?? '{}');
+      expect(body).toEqual({ display_name: 'New Name' });
+      expect(body).not.toHaveProperty('avatar_url');
+    });
+
     it('sends a partial update and returns the new profile', async () => {
       mockFetch.mockResolvedValueOnce(
         jsonResponse({
-          user_id: 'user-1',
+          ...OWNER_PROFILE_STUB,
           display_name: 'New Name',
-          avatar_url: null,
-          is_anonymous: false,
-          providers: [],
         }),
       );
 
