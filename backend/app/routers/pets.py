@@ -132,12 +132,29 @@ def link_photo(
     pet_id: uuid.UUID,
     payload: LinkPhotoRequest,
     db: Session = Depends(get_db),
-) -> LinkPhotoResponse:
+) -> LinkPhotoResponse | JSONResponse:
     """Link a feed photo to a pet profile."""
     firebase_uid: str = request.state.firebase_uid
-    return pet_service.link_photo(
-        db, firebase_uid, pet_id, payload.photo_id
-    )
+    try:
+        return pet_service.link_photo(
+            db, firebase_uid, pet_id, payload.photo_id
+        )
+    except pet_service.PetNotFoundError:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "PET_NOT_FOUND",
+                "message": "Pet or photo not found.",
+            },
+        )
+    except pet_service.PhotoAlreadyLinkedError:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "PHOTO_ALREADY_LINKED",
+                "message": "Photo is already linked to a pet.",
+            },
+        )
 
 
 @router.get("/{pet_id}/photos", response_model=PetPhotosResponse)
@@ -147,9 +164,18 @@ def get_pet_photos(
     limit: int = 20,
     before: str | None = None,
     db: Session = Depends(get_db),
-) -> PetPhotosResponse:
+) -> PetPhotosResponse | JSONResponse:
     """Return a cursor-paginated timeline of a pet's photos."""
     firebase_uid: str = request.state.firebase_uid
-    return pet_service.get_pet_photos(
-        db, firebase_uid, pet_id, limit, before
-    )
+    try:
+        return pet_service.get_pet_photos(
+            db, firebase_uid, pet_id, limit, before
+        )
+    except pet_service.PetNotFoundError:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "PET_NOT_FOUND",
+                "message": "Pet not found.",
+            },
+        )

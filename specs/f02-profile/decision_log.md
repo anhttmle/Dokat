@@ -176,6 +176,38 @@ business logic (limit check, DB write), schema tập trung vào input validation
 
 ---
 
+## DL-F02-14: Minimal Photo model stub tạo trong F02 để test timeline
+
+**Ngày:** 2026-06-21
+**Quyết định:** Tạo `app/models/photo.py` chứa model `Photo` tối thiểu
+(các cột: `id`, `user_id`, `pet_id`, `cdn_url`, `taken_at`,
+`created_at`) để phục vụ các test F02 (timeline và link-photo)
+trước khi F04/F05 định nghĩa bảng `photos` đầy đủ.
+**Lý do:** `link_photo` và `get_pet_photos` cần query bảng `photos`
+thực tế trong DB. Không thể mock toàn bộ lớp ORM vì test dùng SQLite
+in-memory với `Base.metadata.create_all()`. Tạo stub model là cách
+duy nhất để test chạy được mà không cần F04/F05 hoàn thành.
+**Ràng buộc:** Khi F04/F05 định nghĩa `photos` đầy đủ, model này phải
+được merge/replace. Không thêm cột F04/F05 vào stub này.
+**Phát sinh trong:** Task 6.2 (Timeline & Link-photo implementation).
+
+---
+
+## DL-F02-15: `before` cursor normalize '+' trước khi parse ISO 8601
+
+**Ngày:** 2026-06-21
+**Quyết định:** Trong `get_pet_photos`, trước khi gọi
+`datetime.fromisoformat(before)`, thay thế `" "` thành `"+"` trong
+chuỗi `before`.
+**Lý do:** HTTP query string decode `+` thành space (application/x-www-
+form-urlencoded). ISO 8601 timezone offset dùng `+` (ví dụ
+`+00:00`). Nếu client truyền `before=2026-06-20T10:00:00+00:00`, server
+nhận được `2026-06-20T10:00:00 00:00` → `fromisoformat` fail với
+`ValueError`. Normalize về `+` trước khi parse giải quyết vấn đề này.
+**Phát sinh trong:** Task 6.2 (debug test_get_pet_photos_before_cursor).
+
+---
+
 ## DL-F02-08: ProfileService dùng `fetch` làm HTTP transport
 
 **Ngày:** 2026-06-21

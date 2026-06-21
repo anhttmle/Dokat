@@ -1,15 +1,19 @@
 """Business logic for pet profile flows (F02)."""
 
 import uuid
+from datetime import datetime, timezone
 
+from sqlalchemy import nullslast
 from sqlalchemy.orm import Session
 
 from app.models.pet_profile import PetProfile
+from app.models.photo import Photo
 from app.models.user import User
 from app.schemas.pet import (
     CreatePetRequest,
     LinkPhotoResponse,
     PatchPetRequest,
+    PetPhotoItem,
     PetPhotosResponse,
     PetResponse,
 )
@@ -168,8 +172,51 @@ def link_photo(
     pet_id: uuid.UUID,
     photo_id: uuid.UUID,
 ) -> LinkPhotoResponse:
-    """Link a feed photo to a pet profile."""
-    raise NotImplementedError
+    """Link a feed photo to a pet profile.
+
+    Args:
+        db: Active SQLAlchemy session.
+        firebase_uid: Firebase UID from the verified ID token.
+        pet_id: Target pet UUID (must belong to the caller).
+        photo_id: Photo UUID (must belong to the caller).
+
+    Raises:
+        PetNotFoundError: If ``pet_id`` or ``photo_id`` does not exist
+            or does not belong to the caller.
+        PhotoAlreadyLinkedError: If the photo already has a non-NULL
+            ``pet_id`` (Design §3.9; DL-F02-05).
+    """
+    user = _get_user_or_raise(db, firebase_uid)
+    pet = (
+        db.query(PetProfile)
+        .filter(
+            PetProfile.id == pet_id,
+            PetProfile.user_id == user.id,
+        )
+        .first()
+    )
+    if pet is None:
+        raise PetNotFoundError()
+
+    photo = (
+        db.query(Photo)
+        .filter(Photo.id == photo_id, Photo.user_id == user.id)
+        .first()
+    )
+    if photo is None:
+        raise PetNotFoundError()
+
+    if photo.pet_id is not None:
+        raise PhotoAlreadyLinkedError()
+
+    photo.pet_id = pet_id
+    db.commit()
+
+    return LinkPhotoResponse(
+        pet_id=pet_id,
+        photo_id=photo_id,
+        linked_at=datetime.now(timezone.utc),
+    )
 
 
 def get_pet_photos(
@@ -179,8 +226,76 @@ def get_pet_photos(
     limit: int = 20,
     before: str | None = None,
 ) -> PetPhotosResponse:
-    """Return a cursor-paginated timeline of a pet's photos."""
-    raise NotImplementedError
+    """Return a cursor-paginated timeline of a pet's photos.
+
+    Photos are ordered by ``taken_at DESC`` (oldest-last), with
+    ``created_at DESC`` as a tiebreaker.  Callers advance the page
+    by passing the returned ``next_cursor`` value as ``before`` on
+    the next request (Design §3.10; DL-F02-03).
+
+    Args:
+        db: Active SQLAlchemy session.
+        firebase_uid: Firebase UID from the verified ID token.
+        pet_id: Target pet UUID (must belong to the caller).
+        limit: Maximum photos to return (default 20, max 50).
+        before: ISO 8601 ``taken_at`` cursor; only photos *older*
+            than this value are returned.
+
+    Raises:
+        PetNotFoundError: If the pet does not exist or belongs to
+            another user.
+    """
+    user = _get_user_or_raise(db, firebase_uid)
+    pet = (
+        db.query(PetProfile)
+        .filter(
+            PetProfile.id == pet_id,
+            PetProfile.user_id == user.id,
+        )
+        .first()
+    )
+    if pet is None:
+        raise PetNotFoundError()
+
+    query = db.query(Photo).filter(Photo.pet_id == pet_id)
+
+    if before is not None:
+        # URL query strings decode '+' as ' ', but ISO 8601 timezone
+        # offsets use '+'.  Restore it so fromisoformat succeeds.
+        normalised = before.replace(" ", "+")
+        cursor_dt = datetime.fromisoformat(normalised)
+        if cursor_dt.tzinfo is None:
+            cursor_dt = cursor_dt.replace(tzinfo=timezone.utc)
+        query = query.filter(Photo.taken_at < cursor_dt)
+
+    query = query.order_by(
+        nullslast(Photo.taken_at.desc()),
+        Photo.created_at.desc(),
+    )
+
+    rows = query.limit(limit + 1).all()
+    has_more = len(rows) > limit
+    page = rows[:limit]
+
+    next_cursor: str | None = None
+    if has_more and page:
+        last_taken_at = page[-1].taken_at
+        if last_taken_at is not None:
+            next_cursor = last_taken_at.isoformat()
+
+    return PetPhotosResponse(
+        pet_id=pet_id,
+        photos=[
+            PetPhotoItem(
+                photo_id=p.id,
+                cdn_url=p.cdn_url,
+                taken_at=p.taken_at,
+            )
+            for p in page
+        ],
+        next_cursor=next_cursor,
+        has_more=has_more,
+    )
 
 
 def _get_user_or_raise(db: Session, firebase_uid: str) -> User:

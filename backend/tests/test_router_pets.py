@@ -7,7 +7,7 @@ Refs: Design 3.4-3.10, 6.1
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -18,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.models.pet_profile import PetGender, PetProfile, PetSpecies
+from app.models.photo import Photo  # noqa: F401 — registers table in Base
 from app.models.user import Base, User
 from app.routers.auth import get_db
 
@@ -84,6 +85,27 @@ def _make_pet(
     db_session.commit()
     db_session.refresh(pet)
     return pet
+
+
+def _make_photo(
+    db_session: Session,
+    user: User,
+    *,
+    pet: PetProfile | None = None,
+    taken_at: datetime | None = None,
+    cdn_url: str = "https://cdn.example.com/photos/test.jpg",
+) -> Photo:
+    """Insert and return a photo row owned by ``user``."""
+    photo = Photo(
+        user_id=user.id,
+        pet_id=pet.id if pet is not None else None,
+        cdn_url=cdn_url,
+        taken_at=taken_at or datetime.now(timezone.utc),
+    )
+    db_session.add(photo)
+    db_session.commit()
+    db_session.refresh(photo)
+    return photo
 
 
 def test_create_pet_success_returns_201(
@@ -235,42 +257,45 @@ def test_patch_pet_partial_update(
 def test_link_photo_success(
     client: TestClient, db_session: Session
 ) -> None:
-    """Linking an unlinked photo returns 200 with link metadata."""
+    """Linking an unlinked photo returns 200 with link metadata.
+
+    Refs: FR-10; Design §3.9; DL-F02-03, DL-F02-05
+    """
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
-    photo_id = uuid.uuid4()
+    photo = _make_photo(db_session, user)
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
         response = client.patch(
             f"/pets/{pet.id}/link-photo",
             headers=_HEADERS,
-            json={"photo_id": str(photo_id)},
+            json={"photo_id": str(photo.id)},
         )
 
     assert response.status_code == 200
     body = response.json()
     assert body["pet_id"] == str(pet.id)
-    assert body["photo_id"] == str(photo_id)
+    assert body["photo_id"] == str(photo.id)
+    db_session.refresh(photo)
+    assert photo.pet_id == pet.id
 
 
-def test_link_photo_already_linked(
+def test_link_photo_already_linked_returns_409(
     client: TestClient, db_session: Session
 ) -> None:
-    """Linking a photo already tied to a pet returns 409."""
+    """Linking a photo already tied to a pet returns 409.
+
+    Refs: FR-10; Design §3.9; DL-F02-05
+    """
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
-    photo_id = uuid.uuid4()
+    photo = _make_photo(db_session, user, pet=pet)
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
-        client.patch(
-            f"/pets/{pet.id}/link-photo",
-            headers=_HEADERS,
-            json={"photo_id": str(photo_id)},
-        )
         response = client.patch(
             f"/pets/{pet.id}/link-photo",
             headers=_HEADERS,
-            json={"photo_id": str(photo_id)},
+            json={"photo_id": str(photo.id)},
         )
 
     assert response.status_code == 409
@@ -280,7 +305,10 @@ def test_link_photo_already_linked(
 def test_get_pet_photos_empty(
     client: TestClient, db_session: Session
 ) -> None:
-    """A pet with no photos returns an empty timeline."""
+    """A pet with no photos returns an empty timeline.
+
+    Refs: Design §3.10; DL-F02-03
+    """
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
     with patch("firebase_admin.auth.verify_id_token") as mock:
@@ -295,12 +323,20 @@ def test_get_pet_photos_empty(
     assert body["has_more"] is False
 
 
-def test_get_pet_photos_ordered(
+def test_get_pet_photos_ordered_by_taken_at_desc(
     client: TestClient, db_session: Session
 ) -> None:
-    """Timeline photos are returned newest-first by taken_at."""
+    """3 photos with different taken_at are returned newest-first.
+
+    Refs: Design §2.3, §3.10; DL-F02-03
+    """
+    now = datetime.now(timezone.utc)
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
+    _make_photo(db_session, user, pet=pet, taken_at=now - timedelta(days=2))
+    _make_photo(db_session, user, pet=pet, taken_at=now - timedelta(days=1))
+    _make_photo(db_session, user, pet=pet, taken_at=now)
+
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
         response = client.get(
@@ -309,16 +345,29 @@ def test_get_pet_photos_ordered(
 
     assert response.status_code == 200
     photos = response.json()["photos"]
+    assert len(photos) == 3
     taken_at = [p["taken_at"] for p in photos]
     assert taken_at == sorted(taken_at, reverse=True)
 
 
-def test_get_pet_photos_pagination(
+def test_get_pet_photos_pagination_returns_next_cursor(
     client: TestClient, db_session: Session
 ) -> None:
-    """limit=20 over 25 photos returns 20 and has_more=True."""
+    """25 photos with limit=20 returns 20 items, has_more=True, next_cursor.
+
+    Refs: Design §3.10; DL-F02-03
+    """
+    now = datetime.now(timezone.utc)
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
+    for i in range(25):
+        _make_photo(
+            db_session,
+            user,
+            pet=pet,
+            taken_at=now - timedelta(hours=i),
+        )
+
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
         response = client.get(
@@ -327,6 +376,58 @@ def test_get_pet_photos_pagination(
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["photos"]) <= 20
-    assert "has_more" in body
-    assert "next_cursor" in body
+    assert len(body["photos"]) == 20
+    assert body["has_more"] is True
+    assert body["next_cursor"] is not None
+
+
+def test_get_pet_photos_before_cursor_filters_correctly(
+    client: TestClient, db_session: Session
+) -> None:
+    """Passing before=<cursor> returns only photos older than cursor.
+
+    Refs: Design §3.10; DL-F02-03, DL-F02-05
+    """
+    now = datetime.now(timezone.utc)
+    user = _make_user(db_session)
+    pet = _make_pet(db_session, user)
+    oldest = now - timedelta(days=2)
+    middle = now - timedelta(days=1)
+    newest = now
+    _make_photo(db_session, user, pet=pet, taken_at=oldest)
+    _make_photo(db_session, user, pet=pet, taken_at=middle)
+    _make_photo(db_session, user, pet=pet, taken_at=newest)
+
+    # Only photos older than `middle` should be returned.
+    before_param = middle.isoformat()
+    with patch("firebase_admin.auth.verify_id_token") as mock:
+        mock.return_value = {"uid": "pet-owner-uid"}
+        response = client.get(
+            f"/pets/{pet.id}/photos?before={before_param}",
+            headers=_HEADERS,
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["photos"]) == 1
+    assert body["has_more"] is False
+
+
+def test_get_pet_photos_not_owned_returns_404(
+    client: TestClient, db_session: Session
+) -> None:
+    """GET /pets/{id}/photos for another user's pet returns 404.
+
+    Refs: Design §3.10; DL-F02-05
+    """
+    _make_user(db_session)
+    other = _make_user(db_session, firebase_uid="other-uid")
+    other_pet = _make_pet(db_session, other)
+
+    with patch("firebase_admin.auth.verify_id_token") as mock:
+        mock.return_value = {"uid": "pet-owner-uid"}
+        response = client.get(
+            f"/pets/{other_pet.id}/photos", headers=_HEADERS
+        )
+
+    assert response.status_code == 404
