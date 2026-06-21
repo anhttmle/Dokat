@@ -10,6 +10,8 @@ Endpoints (Design §3):
 Refs: Design §3, §5.1
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -33,12 +35,14 @@ from app.services.friend_service import (
     list_friends,
     save_fcm_token,
 )
-from app.services.notification_service import send_friend_notification
+from app.services.notification_service import NotificationService
 from app.services.otp_service import (
     OTPExpiredError,
     OTPService,
     OTPUsedError,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
@@ -136,10 +140,15 @@ async def scan_qr(
         )
 
     friend_profile = get_friend_profile(db, initiator_id)
-    send_friend_notification(
-        initiator_fcm_token=None,
-        scanner_display_name=None,
-    )
+    scanner_profile = get_friend_profile(db, scanner_id)
+    notif_svc = NotificationService(db)
+    try:
+        notif_svc.send_new_friend(
+            initiator_id=initiator_id,
+            scanner_name=scanner_profile.get("display_name"),
+        )
+    except Exception:
+        logger.warning("FCM notification failed for scan", exc_info=True)
 
     return JSONResponse(
         status_code=201,
@@ -183,8 +192,22 @@ def remove_friend(
     request: Request,
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    """Remove a friendship edge (idempotent)."""
+    """Remove a friendship edge (idempotent).
+
+    Returns 404 if friend_user_id does not correspond to a known user.
+    Returns 204 whether or not the friendship row exists (idempotent).
+    """
     user_id = _get_user_id(request, db)
+    try:
+        get_friend_profile(db, friend_user_id)
+    except UserNotFoundError:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error_code": "USER_NOT_FOUND",
+                "message": "Người dùng không tồn tại",
+            },
+        )
     delete_friendship(db, user_id, friend_user_id)
     return JSONResponse(status_code=204, content=None)
 

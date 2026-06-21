@@ -197,7 +197,7 @@ def test_list_friends_bidirectional(db_session: Session) -> None:
 
 
 def test_delete_friendship(db_session: Session) -> None:
-    """Deleting a friendship removes the row; second call is idempotent."""
+    """Deleting a friendship removes the row."""
     a = _make_user(db_session, firebase_uid="uid-del-A")
     b = _make_user(db_session, firebase_uid="uid-del-B")
     _make_friendship(db_session, a, b)
@@ -206,5 +206,10 @@ def test_delete_friendship(db_session: Session) -> None:
 
     assert list_friends(db_session, str(a.id)) == []
 
-    # Idempotent: no exception on second call
+
+def test_delete_friendship_idempotent(db_session: Session) -> None:
+    """Deleting a non-existent friendship silently succeeds (no exception)."""
+    a = _make_user(db_session, firebase_uid="uid-idem-A")
+    b = _make_user(db_session, firebase_uid="uid-idem-B")
+    # No friendship created — must not raise
     delete_friendship(db_session, str(a.id), str(b.id))

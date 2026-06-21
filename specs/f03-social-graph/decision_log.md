@@ -41,3 +41,21 @@
 **Context:** Design §3.5 specifies `PUT /profile/me/fcm-token` under the profile prefix. However, the FCM token is only needed for F03 (friend notifications), and `test_router_friends.py` tests it alongside other F03 endpoints.
 **Decision:** The endpoint is implemented as `PUT /friends/fcm-token` in `routers/friends.py` for F03 scaffold simplicity. The URL deviates from the design spec.
 **Consequence:** If the spec URL `/profile/me/fcm-token` is required, the endpoint should be moved to `routers/profile.py` in a later task. The router test (`test_put_fcm_token`) covers the same business logic regardless of prefix.
+
+---
+
+## DL-F03-06 — `DELETE /friends/{friend_user_id}` validates user existence via `get_friend_profile`
+
+**Date:** 2026-06-21
+**Context:** Task 7.2 (Design §3.4) requires `404 USER_NOT_FOUND` when `friend_user_id` does not correspond to a known user. The router previously called `delete_friendship` directly without validating user existence.
+**Decision:** Added a `get_friend_profile(db, friend_user_id)` call before `delete_friendship()`. If the user doesn't exist, `UserNotFoundError` is caught and mapped to 404. This reuses the existing `get_friend_profile` helper rather than introducing a new DB query.
+**Consequence:** `test_delete_friend_success` and `test_delete_friend_not_found` (existing tests) were updated to also mock `get_friend_profile`, since the router now calls it on every DELETE request. This is a direct consequence of the new validation logic.
+
+---
+
+## DL-F03-07 — NotificationService class replaces send_friend_notification stub; router wraps call in try/except
+
+**Date:** 2026-06-21
+**Context:** Task 8.1 requires a `NotificationService` class with `send_new_friend(initiator_id, scanner_name)` that reads `fcm_token` from the DB. The pre-existing `send_friend_notification()` module-level stub was kept in `notification_service.py` (not deleted) because it was introduced by an earlier task; it is no longer imported by the router.
+**Decision:** Added `NotificationService` class to `notification_service.py`. The router now instantiates `NotificationService(db)` and calls `send_new_friend()`. A `try/except` guard in the router wraps the call so that even if the mock (in tests) makes `send_new_friend` raise, the endpoint still returns 201 (best-effort per Design §5.1).
+**Consequence:** `test_scan_qr_success` was updated as a collateral fix to mock `NotificationService` instead of the old `send_friend_notification`. The scanner's `display_name` is now fetched via `get_friend_profile(db, scanner_id)` and passed to the notification service.

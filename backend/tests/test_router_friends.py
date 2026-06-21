@@ -26,6 +26,7 @@ from app.services.friend_service import (
     AlreadyFriendsError,
     FriendLimitError,
     SelfFriendError,
+    UserNotFoundError,
 )
 from app.services.otp_service import (
     OTPExpiredError,
@@ -142,6 +143,7 @@ def test_scan_qr_success(client: TestClient) -> None:
     mock_svc.consume = AsyncMock(
         return_value=OTPPayload(initiator_id="abc-friend-uuid")
     )
+    mock_notif_instance = MagicMock()
     with patch("app.routers.friends.get_redis_client"), patch(
         "app.routers.friends.OTPService", return_value=mock_svc
     ), patch(
@@ -154,8 +156,8 @@ def test_scan_qr_success(client: TestClient) -> None:
         "app.routers.friends.get_friend_profile",
         return_value=_FAKE_FRIEND,
     ), patch(
-        "app.routers.friends.send_friend_notification",
-        return_value=None,
+        "app.routers.friends.NotificationService",
+        return_value=mock_notif_instance,
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -330,7 +332,10 @@ def test_get_friends_unauthenticated() -> None:
 
 def test_delete_friend_success(client: TestClient) -> None:
     """204 when friendship is deleted."""
-    with patch("app.routers.friends.delete_friendship", return_value=None):
+    with patch(
+        "app.routers.friends.get_friend_profile",
+        return_value=_FAKE_FRIEND,
+    ), patch("app.routers.friends.delete_friendship", return_value=None):
         resp = client.delete(
             "/friends/some-friend-uuid", headers=_HEADERS
         )
@@ -340,7 +345,10 @@ def test_delete_friend_success(client: TestClient) -> None:
 
 def test_delete_friend_not_found(client: TestClient) -> None:
     """204 even when friendship does not exist (idempotent)."""
-    with patch("app.routers.friends.delete_friendship", return_value=None):
+    with patch(
+        "app.routers.friends.get_friend_profile",
+        return_value=_FAKE_FRIEND,
+    ), patch("app.routers.friends.delete_friendship", return_value=None):
         resp = client.delete(
             "/friends/nonexistent-uuid", headers=_HEADERS
         )
@@ -348,8 +356,30 @@ def test_delete_friend_not_found(client: TestClient) -> None:
     assert resp.status_code == 204
 
 
+def test_delete_friend_user_not_found(client: TestClient) -> None:
+    """404 with USER_NOT_FOUND when friend_user_id is not in users table."""
+    with patch(
+        "app.routers.friends.get_friend_profile",
+        side_effect=UserNotFoundError(),
+    ):
+        resp = client.delete(
+            "/friends/nonexistent-uuid", headers=_HEADERS
+        )
+
+    assert resp.status_code == 404
+    assert resp.json()["error_code"] == "USER_NOT_FOUND"
+
+
+def test_delete_friend_unauthenticated() -> None:
+    """Missing Authorization header returns 401."""
+    with TestClient(app, raise_server_exceptions=False) as c:
+        resp = c.delete("/friends/some-uuid")
+
+    assert resp.status_code == 401
+
+
 # ---------------------------------------------------------------------------
-# PUT /profile/me/fcm-token
+# PUT /friends/fcm-token
 # ---------------------------------------------------------------------------
 
 
@@ -365,3 +395,88 @@ def test_put_fcm_token(client: TestClient) -> None:
         )
 
     assert resp.status_code == 204
+
+
+def test_put_fcm_token_empty(client: TestClient) -> None:
+    """422 when fcm_token is an empty string."""
+    resp = client.put(
+        "/friends/fcm-token",
+        json={"fcm_token": ""},
+        headers=_HEADERS,
+    )
+
+    assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Notification behaviour on POST /friends/qr/scan
+# ---------------------------------------------------------------------------
+
+_FAKE_FRIENDSHIP = MagicMock(
+    id="friend-row-uuid",
+    created_at=datetime(2026, 6, 21, 4, 2, 30, tzinfo=timezone.utc),
+)
+
+
+def test_notification_sent_on_scan(client: TestClient) -> None:
+    """NotificationService.send_new_friend is called once on success."""
+    mock_otp_svc = MagicMock()
+    mock_otp_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="abc-friend-uuid")
+    )
+    mock_notif_instance = MagicMock()
+
+    with patch("app.routers.friends.get_redis_client"), patch(
+        "app.routers.friends.OTPService", return_value=mock_otp_svc
+    ), patch(
+        "app.routers.friends.create_friendship",
+        return_value=_FAKE_FRIENDSHIP,
+    ), patch(
+        "app.routers.friends.get_friend_profile",
+        return_value=_FAKE_FRIEND,
+    ), patch(
+        "app.routers.friends.NotificationService",
+        return_value=mock_notif_instance,
+    ):
+        resp = client.post(
+            "/friends/qr/scan",
+            json={"token": "valid-token"},
+            headers=_HEADERS,
+        )
+
+    assert resp.status_code == 201
+    mock_notif_instance.send_new_friend.assert_called_once()
+
+
+def test_notification_failure_does_not_rollback(
+    client: TestClient,
+) -> None:
+    """201 is returned even when NotificationService.send_new_friend raises."""
+    mock_otp_svc = MagicMock()
+    mock_otp_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="abc-friend-uuid")
+    )
+    mock_notif_instance = MagicMock()
+    mock_notif_instance.send_new_friend.side_effect = Exception(
+        "FCM unavailable"
+    )
+
+    with patch("app.routers.friends.get_redis_client"), patch(
+        "app.routers.friends.OTPService", return_value=mock_otp_svc
+    ), patch(
+        "app.routers.friends.create_friendship",
+        return_value=_FAKE_FRIENDSHIP,
+    ), patch(
+        "app.routers.friends.get_friend_profile",
+        return_value=_FAKE_FRIEND,
+    ), patch(
+        "app.routers.friends.NotificationService",
+        return_value=mock_notif_instance,
+    ):
+        resp = client.post(
+            "/friends/qr/scan",
+            json={"token": "valid-token"},
+            headers=_HEADERS,
+        )
+
+    assert resp.status_code == 201
