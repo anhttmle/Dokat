@@ -4,7 +4,9 @@ sqlalchemy[asyncio]
 alembic
 firebase-admin
 asyncpg
+boto3
 pydantic-settings
 pytest
 pytest-asyncio
 httpx
+moto[s3]

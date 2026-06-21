@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://localhost/me_dev"
     debug: bool = False
 
+    s3_bucket: str = "pawsnap"
+    cdn_base_url: str = "https://cdn.pawsnap.app"
+    aws_region: str = "us-east-1"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

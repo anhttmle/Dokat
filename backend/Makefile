@@ -5,7 +5,7 @@ RUFF    := .venv/bin/ruff
 BLACK   := .venv/bin/black
 UVICORN := .venv/bin/uvicorn
 
-.PHONY: install test test-integration lint run
+.PHONY: install test test-integration lint run migrate
 
 install:
 	python3 -m venv .venv
@@ -25,3 +25,6 @@ lint:
 
 run:
 	$(UVICORN) app.main:app --reload --host 0.0.0.0 --port 8000
+
+migrate:
+	.venv/bin/alembic upgrade head

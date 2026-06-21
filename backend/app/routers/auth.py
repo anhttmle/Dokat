@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.models.user import OAuthProvider
 from app.schemas.auth import LinkResponse, SessionResponse
 from app.services.auth_service import build_session_response, link_provider
+from app.services.profile_service import autofill_from_oauth
 from app.services.user_service import get_or_create_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -105,4 +106,10 @@ def link(
         )
 
     provider_uid: str = provider_uid_list[0]
-    return link_provider(db, firebase_uid, provider, provider_uid)
+    result = link_provider(db, firebase_uid, provider, provider_uid)
+
+    display_name: str | None = token_claims.get("name")
+    picture_url: str | None = token_claims.get("picture")
+    autofill_from_oauth(db, firebase_uid, display_name, picture_url)
+
+    return result

@@ -79,3 +79,115 @@ có `pet_id` ≠ NULL, trả về 409 thay vì ghi đè.
 hỏi xác nhận user trước khi "chuyển" ảnh từ pet cũ sang
 pet mới. Việc ghi đè sẽ được implement trong một endpoint
 riêng hoặc thêm param `force=true` trong tương lai nếu cần.
+
+---
+
+## DL-F02-07: SQLAlchemy Enum dùng `native_enum=False`
+
+**Ngày:** 2026-06-21
+**Quyết định:** `PetSpecies` và `PetGender` trong model
+`pet_profiles` khai báo Enum với `native_enum=False` (lưu
+dưới dạng VARCHAR + CHECK constraint) thay vì native ENUM
+của PostgreSQL.
+**Lý do:** Test suite dùng SQLite in-memory (pattern từ F01)
+để chạy nhanh, không cần PostgreSQL. SQLite không hỗ trợ
+native ENUM nên `native_enum=False` giúp model portable
+giữa SQLite (test) và PostgreSQL (production) mà không cần
+lớp mock riêng.
+**Phát sinh trong:** Task 1.1 (scaffold backend F02).
+
+---
+
+## DL-F02-09: Migration tests và ORM test đặt chung một file
+
+**Ngày:** 2026-06-21
+**Quyết định:** Test migration schema (3 tests spec 2.1) và test ORM
+model (1 test spec 2.2) được đặt chung trong
+`tests/migrations/test_pet_profiles_migration.py`, dùng chung fixture
+`db_engine` / `db_session` / `seed_user`.
+**Lý do:** Cả hai nhóm test dùng SQLite in-memory với
+`Base.metadata.create_all()`. Tách thành 2 file nhân đôi fixture
+setup mà không mang lại lợi ích phân tách rõ ràng. Nhất quán với
+convention `tests/migrations/` từ F01.
+**Spec đề xuất:** `tests/test_migration.py` — không follow vì khác
+convention hiện tại của repo.
+**Phát sinh trong:** Task 2.1 + 2.2.
+
+---
+
+## DL-F02-10: autofill_from_oauth được gọi từ auth router, không từ auth_service
+
+**Ngày:** 2026-06-21
+**Quyết định:** `autofill_from_oauth` (định nghĩa trong `profile_service.py`)
+được gọi trực tiếp từ `routers/auth.py` ngay sau khi `link_provider` trả về,
+thay vì được gọi bên trong `auth_service.link_provider`.
+**Lý do:** `link_provider` trong `auth_service.py` không nhận `display_name`
+hay `picture_url` từ token — chúng chỉ có sẵn trong `token_claims` ở tầng
+router. Truyền thêm 2 tham số tùy chọn vào `link_provider` làm thay đổi
+signature của F01 không cần thiết. Gọi từ router tách biệt trách nhiệm rõ
+hơn: auth_service lo về link provider, profile_service lo về auto-fill profile.
+**Ảnh hưởng:** Trong trường hợp merge (user B), `autofill_from_oauth` nhận
+`firebase_uid` của guest (đã bị xóa sau merge) → query trả None → hàm
+return early an toàn. User B không bị auto-fill (họ đã có tài khoản).
+**Phát sinh trong:** Task 3.2.
+
+---
+
+## DL-F02-11: Presigned URL dùng SigV4 thay vì SigV2 mặc định
+
+**Ngày:** 2026-06-21
+**Quyết định:** `boto3.client("s3", ...)` được tạo với
+`config=Config(signature_version="s3v4")` để presigned URL
+chứa tham số `X-Amz-Signature` (SigV4) thay vì `Signature`
+(SigV2 mặc định của moto).
+**Lý do:** Spec (Design §3.3) mô tả URL trả về có
+`X-Amz-Signature`; SigV4 là tiêu chuẩn AWS hiện tại và
+bắt buộc với một số region. Test 4.1 kiểm tra chuỗi này
+trực tiếp.
+**Phát sinh trong:** Task 4.2.
+
+---
+
+## DL-F02-12: Router presigned URL tests dùng moto inline
+
+**Ngày:** 2026-06-21
+**Quyết định:** `test_presigned_url_owner_avatar` trong
+`test_router_profile.py` được cập nhật để wrap boto3 call
+trong `mock_aws()` context và tạo bucket "pawsnap" trước
+khi gọi endpoint.
+**Lý do:** Task 4.2 wiring router thực sự gọi `boto3`,
+nên test cần moto để không gọi AWS thật. Test này đã
+FAIL trước (500 NotImplementedError) — việc thêm moto
+là điều kiện cần để test pass sau khi implement.
+**Phát sinh trong:** Task 4.2.
+
+---
+
+## DL-F02-13: birthdate validation ở tầng schema (Pydantic), không ở service
+
+**Ngày:** 2026-06-21
+**Quyết định:** Validation "birthdate không trong tương lai" được thực hiện
+bằng `@field_validator` trong `CreatePetRequest` (Pydantic), không phải trong
+`pet_service.create_pet`.
+**Lý do:** FastAPI tự động trả về 422 khi Pydantic validator thất bại —
+không cần thêm try/except trong service hay router. Giữ service tập trung vào
+business logic (limit check, DB write), schema tập trung vào input validation.
+**Phát sinh trong:** Task 5.2.
+
+---
+
+## DL-F02-08: ProfileService dùng `fetch` làm HTTP transport
+
+**Ngày:** 2026-06-21
+**Quyết định:** Client `ProfileService` gọi backend qua
+global `fetch` (mock được trong Jest), token lấy từ
+`AuthService.getIdToken()`.
+**Lý do:** Repo chưa có HTTP client dùng chung; `fetch` có
+sẵn trong React Native, không thêm dependency. Test scaffold
+mock `global.fetch` để định nghĩa contract trước khi
+implement.
+**Ghi chú phụ:** `ProfileService` và `PetAIService` được
+viết theo dạng object-literal export default (nhất quán với
+`AuthService` hiện có) thay vì class như mô tả trong plan —
+chọn để khớp style codebase và đơn giản hóa manual mock.
+**Phát sinh trong:** Task 1.2 (scaffold client F02).
