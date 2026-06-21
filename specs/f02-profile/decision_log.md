@@ -255,6 +255,21 @@ sẵn có mà không cần mock picker. Pattern này không ảnh hưởng
 
 ---
 
+## DL-F02-19: PetPickerOverlay thêm prop `onOpenCreatePet?` không có trong spec
+
+**Ngày:** 2026-06-21
+**Quyết định:** `PetPickerOverlay` nhận thêm prop tùy chọn
+`onOpenCreatePet?: () => void` ngoài danh sách props gốc trong
+spec (`visible, pets, onSelectPet, onClose`).
+**Lý do:** Design §4.1 mô tả item "Tạo pet mới" cần mở
+`CreatePetProfileSheet`. Nếu không có callback này, button chỉ gọi
+`onClose()` mà không trigger gì — F04 sẽ không thể wire up sheet.
+Prop là optional để backward-compatible; tests Task 9.1/9.2 không
+test behaviour này nên không cần mock.
+**Phát sinh trong:** Task 9.2.
+
+---
+
 ## DL-F02-08: ProfileService dùng `fetch` làm HTTP transport
 
 **Ngày:** 2026-06-21
