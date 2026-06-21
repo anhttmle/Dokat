@@ -9,7 +9,7 @@ Refs: Design §3, §6.2, AC-F03-1 through AC-F03-9
 """
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,12 +21,17 @@ import app.models.friendship  # noqa: F401  register table on Base
 from app.main import app
 from app.models.user import Base, OAuthProvider, User, UserProvider
 from app.routers.auth import get_db
+from app.schemas.friend import GenerateQRResponse
 from app.services.friend_service import (
     AlreadyFriendsError,
     FriendLimitError,
     SelfFriendError,
 )
-from app.services.otp_service import OTPExpiredError, OTPUsedError
+from app.services.otp_service import (
+    OTPExpiredError,
+    OTPPayload,
+    OTPUsedError,
+)
 
 _HEADERS = {"Authorization": "Bearer fake-token"}
 
@@ -104,8 +109,11 @@ def _ensure_user(db: Session, *, firebase_uid: str) -> User:
 
 def test_generate_qr_success(client: TestClient) -> None:
     """200 response with token, deep_link, expires_at."""
+    fake_response = GenerateQRResponse(**_FAKE_QR)
+    mock_svc = MagicMock()
+    mock_svc.generate = AsyncMock(return_value=fake_response)
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.generate_otp", return_value=_FAKE_QR
+        "app.routers.friends.OTPService", return_value=mock_svc
     ):
         resp = client.post("/friends/qr/generate", headers=_HEADERS)
 
@@ -130,9 +138,12 @@ def test_generate_qr_unauthenticated() -> None:
 
 def test_scan_qr_success(client: TestClient) -> None:
     """201 response with friendship_id and friend info."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="abc-friend-uuid")
+    )
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        return_value={"initiator_id": "abc-friend-uuid"},
+        "app.routers.friends.OTPService", return_value=mock_svc
     ), patch(
         "app.routers.friends.create_friendship",
         return_value=MagicMock(
@@ -160,9 +171,10 @@ def test_scan_qr_success(client: TestClient) -> None:
 
 def test_scan_qr_expired(client: TestClient) -> None:
     """410 with error_code QR_EXPIRED."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(side_effect=OTPExpiredError())
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        side_effect=OTPExpiredError(),
+        "app.routers.friends.OTPService", return_value=mock_svc
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -176,9 +188,10 @@ def test_scan_qr_expired(client: TestClient) -> None:
 
 def test_scan_qr_used(client: TestClient) -> None:
     """410 with error_code QR_USED."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(side_effect=OTPUsedError())
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        side_effect=OTPUsedError(),
+        "app.routers.friends.OTPService", return_value=mock_svc
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -192,9 +205,12 @@ def test_scan_qr_used(client: TestClient) -> None:
 
 def test_scan_qr_self(client: TestClient) -> None:
     """422 with error_code SELF_FRIEND."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="self-uuid")
+    )
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        return_value={"initiator_id": "self-uuid"},
+        "app.routers.friends.OTPService", return_value=mock_svc
     ), patch(
         "app.routers.friends.create_friendship",
         side_effect=SelfFriendError(),
@@ -211,9 +227,12 @@ def test_scan_qr_self(client: TestClient) -> None:
 
 def test_scan_qr_already_friends(client: TestClient) -> None:
     """409 when both users are already friends."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="other-uuid")
+    )
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        return_value={"initiator_id": "other-uuid"},
+        "app.routers.friends.OTPService", return_value=mock_svc
     ), patch(
         "app.routers.friends.create_friendship",
         side_effect=AlreadyFriendsError(),
@@ -229,9 +248,12 @@ def test_scan_qr_already_friends(client: TestClient) -> None:
 
 def test_scan_qr_limit_initiator(client: TestClient) -> None:
     """422 with error_code FRIEND_LIMIT_INITIATOR."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="full-uuid")
+    )
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        return_value={"initiator_id": "full-uuid"},
+        "app.routers.friends.OTPService", return_value=mock_svc
     ), patch(
         "app.routers.friends.create_friendship",
         side_effect=FriendLimitError(side="initiator"),
@@ -248,9 +270,12 @@ def test_scan_qr_limit_initiator(client: TestClient) -> None:
 
 def test_scan_qr_limit_scanner(client: TestClient) -> None:
     """422 with error_code FRIEND_LIMIT_SCANNER."""
+    mock_svc = MagicMock()
+    mock_svc.consume = AsyncMock(
+        return_value=OTPPayload(initiator_id="other-uuid")
+    )
     with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.consume_otp",
-        return_value={"initiator_id": "other-uuid"},
+        "app.routers.friends.OTPService", return_value=mock_svc
     ), patch(
         "app.routers.friends.create_friendship",
         side_effect=FriendLimitError(side="scanner"),

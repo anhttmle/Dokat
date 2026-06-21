@@ -20,6 +20,15 @@
 
 ---
 
+## DL-F03-04 — Router updated as direct consequence of tasks 3.1 and 3.2
+
+**Date:** 2026-06-21
+**Context:** Task 3.1 requires `get_redis_client()` to return `redis.asyncio.Redis`. Task 3.2 requires `OTPService` async class replacing the old sync `generate_otp`/`consume_otp` functions. The existing `app/routers/friends.py` called those sync functions directly. Leaving the router unchanged would result in broken code (sync calls on an async Redis client).
+**Decision:** Updated `app/routers/friends.py` as a minimal collateral change: replaced `generate_otp`/`consume_otp` calls with `OTPService` async calls, and marked the relevant endpoint handlers `async def`. Also updated mock targets in `test_router_friends.py` from the old functions to `OTPService`.
+**Consequence:** The router now uses the correct async API. Task 4 (router test suite) can proceed without needing to re-migrate. This change is a direct, unavoidable consequence of tasks 3.1 and 3.2 and does not implement any new router business logic.
+
+---
+
 ## DL-F03-03 — FCM token endpoint placed in friends router, not profile router
 
 **Date:** 2026-06-21

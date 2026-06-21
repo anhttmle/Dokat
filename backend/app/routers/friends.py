@@ -36,9 +36,8 @@ from app.services.friend_service import (
 from app.services.notification_service import send_friend_notification
 from app.services.otp_service import (
     OTPExpiredError,
+    OTPService,
     OTPUsedError,
-    consume_otp,
-    generate_otp,
 )
 
 router = APIRouter(prefix="/friends", tags=["friends"])
@@ -53,34 +52,36 @@ def _get_user_id(request: Request, db: Session) -> str:
         .first()
     )
     if user is None:
-        raise UserNotFoundError(f"No user for firebase_uid={firebase_uid!r}")
+        raise UserNotFoundError(
+            f"No user for firebase_uid={firebase_uid!r}"
+        )
     return str(user.id)
 
 
 @router.post("/qr/generate", response_model=GenerateQRResponse)
-def generate_qr(
+async def generate_qr(
     request: Request,
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Generate a new QR OTP for the authenticated user."""
     user_id = _get_user_id(request, db)
-    redis_client = get_redis_client()
-    result = generate_otp(redis_client, user_id)
-    return JSONResponse(content=result)
+    svc = OTPService(get_redis_client())
+    result = await svc.generate(initiator_id=user_id)
+    return JSONResponse(content=result.model_dump())
 
 
 @router.post("/qr/scan", status_code=201)
-def scan_qr(
+async def scan_qr(
     payload: ScanQRRequest,
     request: Request,
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Scan a QR token and create a friendship if valid."""
     scanner_id = _get_user_id(request, db)
-    redis_client = get_redis_client()
+    svc = OTPService(get_redis_client())
 
     try:
-        otp_data = consume_otp(redis_client, payload.token)
+        otp_data = await svc.consume(payload.token)
     except OTPExpiredError:
         return JSONResponse(
             status_code=410,
@@ -98,7 +99,7 @@ def scan_qr(
             },
         )
 
-    initiator_id: str = otp_data["initiator_id"]
+    initiator_id: str = otp_data.initiator_id
 
     try:
         friendship = create_friendship(
