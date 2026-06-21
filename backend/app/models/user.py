@@ -47,6 +47,7 @@ class User(Base):
     )
     display_name: Mapped[str | None] = mapped_column(String(100))
     avatar_url: Mapped[str | None] = mapped_column(Text)
+    fcm_token: Mapped[str | None] = mapped_column(Text)
     force_link_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)
     )

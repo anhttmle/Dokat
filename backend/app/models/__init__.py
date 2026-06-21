@@ -4,6 +4,7 @@ Import from this package to avoid referencing individual model modules
 directly outside of ``app/models/``.
 """
 
+from app.models.friendship import Friendship
 from app.models.pet_profile import PetGender, PetProfile, PetSpecies
 from app.models.user import Base, OAuthProvider, User, UserProvider
 
@@ -15,4 +16,5 @@ __all__ = [
     "PetProfile",
     "PetSpecies",
     "PetGender",
+    "Friendship",
 ]
