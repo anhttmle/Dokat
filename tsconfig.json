@@ -8,9 +8,10 @@
     "lib": ["es2020"],
     "moduleResolution": "bundler",
     "noEmit": true,
+    "skipLibCheck": true,
     "strict": true,
     "target": "esnext",
-    "types": ["jest", "@types/react", "@types/react-native"]
+    "types": ["jest", "@types/react"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "babel.config.js", "jest.config.js"]
