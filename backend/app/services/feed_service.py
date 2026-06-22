@@ -39,13 +39,16 @@ class InvalidCursorError(Exception):
 
 
 def _blocked_sender_ids(db: Session, viewer_id: uuid.UUID) -> set[uuid.UUID]:
-    """Return sender IDs the viewer has blocked.
+    """Return sender IDs hidden from the viewer's feed by a block.
 
-    F06 leaves this as an empty-set hook; F10 fills in the real lookup
-    against ``blocked_users`` without touching the feed query
-    (DL-F06-03).
+    Delegates to ``block_service.get_blocked_user_ids``, which returns a
+    bidirectional set (people the viewer blocked ∪ people who blocked the
+    viewer), so a block hides photos both ways without changing the feed
+    query (DL-F06-03, DL-F10-04).
     """
-    return set()
+    from app.services import block_service
+
+    return block_service.get_blocked_user_ids(db, viewer_id)
 
 
 def _encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:

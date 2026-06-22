@@ -47,6 +47,14 @@ const AuthService = {
 
   getCurrentUser: () => auth().currentUser,
 
+  /**
+   * Sign the current user out of Firebase (used on logout — F10).
+   *
+   * Design §1.5 (FR-9, FR-10): the backend device token is cleared
+   * separately via SettingsService.logout before this is called.
+   */
+  signOut: (): Promise<void> => auth().signOut(),
+
   getIdToken: async (): Promise<string | null> => {
     const user = auth().currentUser;
     if (!user) {
