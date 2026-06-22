@@ -18,7 +18,17 @@ Phần triển khai code của F11 là client `LocationService` +
 `buildLocationPayload`.
 **Consequence:** Tránh dangling migration đụng bảng chưa tồn tại, nhất
 quán DL-F04-01. Phần persist DB + validate server được test trong
-integration suite của F05, không phải F11.
+integration suite của F05, không phải F11. Cụ thể, các test sau thuộc
+integration suite của **F05**:
+
+- Post lưu `latitude`/`longitude` đúng độ chính xác 8 chữ số thập phân
+  khi user cấp quyền (AC-F11-1).
+- Post lưu `latitude = NULL`, `longitude = NULL` khi user từ chối quyền
+  (AC-F11-2).
+- `latitude`/`longitude` ngoài khoảng [-90, 90] / [-180, 180] → 422
+  (Pydantic validate, Design §3.1).
+- Response của `GET /feed`, `GET /history/*`, `GET /posts/{id}/seen-by`
+  và `POST /posts` không chứa `latitude`/`longitude` (AC-F11-3).
 
 ---
 
