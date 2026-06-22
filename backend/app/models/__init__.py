@@ -6,6 +6,7 @@ directly outside of ``app/models/``.
 
 from app.models.block import BlockedUser
 from app.models.friendship import Friendship
+from app.models.notification_pref import NotificationPreference, ReminderType
 from app.models.pet_profile import PetGender, PetProfile, PetSpecies
 from app.models.post import Post
 from app.models.post_recipient import PostRecipient
@@ -26,4 +27,6 @@ __all__ = [
     "BlockedUser",
     "Report",
     "ReportReason",
+    "NotificationPreference",
+    "ReminderType",
 ]

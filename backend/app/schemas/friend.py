@@ -63,9 +63,14 @@ class ScanQRResponse(BaseModel):
 
 
 class FCMTokenRequest(BaseModel):
-    """Request body for PUT /friends/fcm-token."""
+    """Request body for PUT /friends/fcm-token.
+
+    ``timezone`` is optional (backward-compatible, DL-F09-02).
+    When present it must be a valid IANA timezone string.
+    """
 
     fcm_token: str
+    timezone: str | None = None
 
     @field_validator("fcm_token")
     @classmethod

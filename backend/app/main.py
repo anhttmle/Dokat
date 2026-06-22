@@ -7,6 +7,7 @@ from app.routers.auth import router as auth_router
 from app.routers.feed import router as feed_router
 from app.routers.friends import router as friends_router
 from app.routers.history import router as history_router
+from app.routers.notifications import router as notifications_router
 from app.routers.pets import router as pets_router
 from app.routers.posts import router as posts_router
 from app.routers.profile import router as profile_router
@@ -25,6 +26,7 @@ app.include_router(feed_router)
 app.include_router(seen_router)
 app.include_router(history_router)
 app.include_router(settings_router)
+app.include_router(notifications_router)
 
 
 @app.get("/health")

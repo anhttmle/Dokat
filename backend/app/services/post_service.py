@@ -115,8 +115,8 @@ def create_post(
     db.commit()
     db.refresh(post)
 
-    # F09 hook: send "new photo" push to each recipient here, after the
-    # recipients are committed. F05 intentionally does not call FCM
-    # (DL-F05-05).
+    from app.services.notification_service import NotificationService
+
+    NotificationService(db).send_new_photo(post, db)
 
     return post, len(unique_ids)

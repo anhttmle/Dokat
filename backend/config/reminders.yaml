@@ -1,0 +1,36 @@
+# Lịch reminder cho từng loại thú cưng.
+# hour/minute theo múi giờ của thiết bị user (timezone-aware job).
+# Thay đổi YAML → yêu cầu redeploy (Technical Constraints).
+reminders:
+  dog:
+    - type: feeding
+      hour: 7
+      minute: 0
+    - type: feeding
+      hour: 18
+      minute: 0
+    - type: sleeping
+      hour: 22
+      minute: 0
+    - type: bathing
+      hour: 10
+      minute: 0
+    - type: playing
+      hour: 17
+      minute: 0
+  cat:
+    - type: feeding
+      hour: 7
+      minute: 30
+    - type: feeding
+      hour: 18
+      minute: 30
+    - type: sleeping
+      hour: 23
+      minute: 0
+    - type: bathing
+      hour: 10
+      minute: 30
+    - type: playing
+      hour: 16
+      minute: 0

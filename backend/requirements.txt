@@ -6,6 +6,8 @@ firebase-admin
 asyncpg
 boto3
 pydantic-settings
+apscheduler
+pyyaml
 pytest
 pytest-asyncio
 httpx

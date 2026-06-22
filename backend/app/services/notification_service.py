@@ -1,20 +1,39 @@
 """Notification service — send FCM push notifications (best-effort).
 
-Notifications are fire-and-forget: if FCM fails, we log a warning and
-continue.  Friendship creation is never rolled back due to notification
-failure (Design §1.2, §5.1).
+Notifications are fire-and-forget: FCM failures are logged as warnings
+and never propagate to callers. Post creation is never rolled back due
+to notification failure (DL-F05-05).
 
-Refs: Design §1.2
+New in F09:
+- ``send_new_photo``: push to each post recipient after post commit.
+- ``send_reminder``: push a daily reminder for a single user.
+- ``_is_blocked``: check block relationship before sending (DL-F09-04).
+
+Refs: Design §1.1, §1.2, §4.1, §5; AC-F09-1, AC-F09-2, AC-F09-3;
+DL-F05-05, DL-F09-01, DL-F09-04
 """
 
 import logging
 import uuid
 
+import firebase_admin.messaging
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.models.block import BlockedUser
+from app.models.notification_pref import ReminderType
+from app.models.post import Post
+from app.models.post_recipient import PostRecipient
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+REMINDER_LABELS: dict[ReminderType, str] = {
+    ReminderType.feeding: "cho ăn",
+    ReminderType.sleeping: "ngủ",
+    ReminderType.bathing: "tắm",
+    ReminderType.playing: "chơi",
+}
 
 
 class NotificationService:
@@ -55,15 +74,6 @@ class NotificationService:
 
         name = scanner_name or "Someone"
         try:
-            # TODO(F03): replace stub with real Firebase Admin SDK call:
-            # message = firebase_admin.messaging.Message(
-            #     notification=firebase_admin.messaging.Notification(
-            #         title="Bạn bè mới",
-            #         body=f"{name} đã kết bạn với bạn",
-            #     ),
-            #     token=user.fcm_token,
-            # )
-            # firebase_admin.messaging.send(message)
             logger.info(
                 "FCM notification queued for initiator=%s: '%s added you'",
                 str(initiator_id)[:8],
@@ -75,6 +85,157 @@ class NotificationService:
                 initiator_id,
                 exc_info=True,
             )
+
+    def send_new_photo(self, post: Post, db: Session) -> None:
+        """Send a 'new photo' push to each post recipient.
+
+        Steps (Design §1.1):
+        1. Read recipients from post_recipients for this post.
+        2. Skip recipients blocked by the sender (DL-F09-04).
+        3. Skip recipients with no fcm_token.
+        4. Call FCM with post data (AC-F09-1, AC-F09-2).
+        5. All FCM errors are caught + logged; no raise (DL-F05-05).
+
+        Args:
+            post: The newly created ``Post`` ORM instance.
+            db: Active session (may differ from ``self._db``).
+        """
+        recipients = (
+            db.query(PostRecipient)
+            .filter(PostRecipient.post_id == post.id)
+            .all()
+        )
+
+        sender = db.query(User).filter(User.id == post.user_id).first()
+        sender_name = (
+            sender.display_name if sender else None
+        ) or "Ai đó"
+
+        for recipient_row in recipients:
+            rid = recipient_row.recipient_id
+            if _is_blocked(post.user_id, rid, db):
+                logger.debug(
+                    "Skipping FCM: sender %s blocked by/with recipient %s",
+                    post.user_id,
+                    rid,
+                )
+                continue
+
+            recipient = db.query(User).filter(User.id == rid).first()
+            if recipient is None or not recipient.fcm_token:
+                logger.debug(
+                    "Skipping FCM: no token for recipient %s", rid
+                )
+                continue
+
+            _send_fcm(
+                token=recipient.fcm_token,
+                title=sender_name,
+                body="đã gửi ảnh thú cưng mới cho bạn",
+                image=post.cdn_url,
+                data={
+                    "post_id": str(post.id),
+                    "screen": "FeedDetail",
+                },
+            )
+
+    def send_reminder(
+        self,
+        user: User,
+        pet_name: str,
+        reminder_type: ReminderType,
+    ) -> None:
+        """Send a daily reminder push to a single user.
+
+        Best-effort: FCM errors are caught and logged (DL-F09-05).
+
+        Args:
+            user: Target user (must have non-null fcm_token).
+            pet_name: Name of the user's pet to show in the message.
+            reminder_type: Which reminder category.
+        """
+        if not user.fcm_token:
+            logger.debug(
+                "Skipping reminder FCM: no token for user %s", user.id
+            )
+            return
+
+        label = REMINDER_LABELS.get(reminder_type, str(reminder_type))
+        body = f"Đến giờ {label} cho {pet_name} rồi!"
+        _send_fcm(
+            token=user.fcm_token,
+            title="Nhắc nhở thú cưng",
+            body=body,
+        )
+
+
+def _is_blocked(
+    sender_id: uuid.UUID,
+    recipient_id: uuid.UUID,
+    db: Session,
+) -> bool:
+    """Return True if a block exists between sender and recipient.
+
+    Checks both directions (sender→recipient and recipient→sender).
+
+    Args:
+        sender_id: UUID of the post sender.
+        recipient_id: UUID of the recipient.
+        db: Active session.
+    """
+    row = (
+        db.query(BlockedUser)
+        .filter(
+            or_(
+                and_(
+                    BlockedUser.blocker_id == sender_id,
+                    BlockedUser.blocked_id == recipient_id,
+                ),
+                and_(
+                    BlockedUser.blocker_id == recipient_id,
+                    BlockedUser.blocked_id == sender_id,
+                ),
+            )
+        )
+        .first()
+    )
+    return row is not None
+
+
+def _send_fcm(
+    *,
+    token: str,
+    title: str,
+    body: str,
+    image: str | None = None,
+    data: dict[str, str] | None = None,
+) -> None:
+    """Build and send a Firebase Cloud Messaging message.
+
+    Errors are caught and logged as warnings (best-effort).
+
+    Args:
+        token: FCM device token.
+        title: Notification title.
+        body: Notification body text.
+        image: Optional image URL (thumbnail).
+        data: Optional data payload dict for deep linking.
+    """
+    try:
+        msg = firebase_admin.messaging.Message(
+            notification=firebase_admin.messaging.Notification(
+                title=title,
+                body=body,
+                image=image,
+            ),
+            data=data or {},
+            token=token,
+        )
+        firebase_admin.messaging.send(msg)
+    except Exception:
+        logger.warning(
+            "FCM send failed for token=%s", token[:8], exc_info=True
+        )
 
 
 def send_friend_notification(
@@ -101,5 +262,3 @@ def send_friend_notification(
         initiator_fcm_token[:8] + "...",
         name,
     )
-    # TODO(F03-task-notification): implement real Firebase Admin SDK call
-    # firebase_admin.messaging.send(...)

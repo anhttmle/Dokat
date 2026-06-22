@@ -212,7 +212,25 @@ def update_fcm_token(
     request: Request,
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    """Register or update the FCM device token for the current user."""
+    """Register or update the FCM device token for the current user.
+
+    If ``timezone`` is present, validates it against the IANA timezone
+    database and persists it on the user row (DL-F09-02).
+    """
+    from zoneinfo import available_timezones
+
+    if payload.timezone is not None:
+        if payload.timezone not in available_timezones():
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": "INVALID_TIMEZONE",
+                    "message": (
+                        f"'{payload.timezone}' is not a valid IANA timezone"
+                    ),
+                },
+            )
+
     user_id = _get_user_id(request, db)
     try:
         save_fcm_token(db, user_id, payload.fcm_token)
@@ -224,4 +242,16 @@ def update_fcm_token(
                 "message": "Người dùng không tồn tại",
             },
         )
+
+    if payload.timezone is not None:
+        firebase_uid: str = request.state.firebase_uid
+        user = (
+            db.query(User)
+            .filter(User.firebase_uid == firebase_uid)
+            .first()
+        )
+        if user is not None:
+            user.timezone = payload.timezone
+            db.commit()
+
     return JSONResponse(status_code=204, content=None)
