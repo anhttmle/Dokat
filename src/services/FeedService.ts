@@ -6,12 +6,13 @@
  *   - markSeen(postId): F07 integration point (DL-F06-02)
  *
  * Every request attaches a Firebase ID token via AuthService.getIdToken()
- * (same pattern as SocialService). ``markSeen`` is a no-op boundary in
- * F06: it lets FeedScreen update the seen flag optimistically while F07
- * later plugs in the real ``POST /posts/{id}/seen`` network call.
+ * (same pattern as SocialService). ``markSeen`` delegates to
+ * ``SeenService.markSeen`` (the F07 network call), keeping its signature
+ * so FeedScreen's optimistic update is unchanged (DL-F07-05).
  */
 
 import AuthService from './AuthService';
+import SeenService from './SeenService';
 
 const BASE_URL = 'http://localhost:8000';
 
@@ -65,17 +66,16 @@ const FeedService = {
   },
 
   /**
-   * Mark a post as seen — F07 integration point (DL-F06-02).
+   * Mark a post as seen by delegating to SeenService (DL-F07-05).
    *
-   * In F06 this is a no-op boundary: FeedScreen updates the local
-   * ``seen`` flag optimistically and calls this hook. F07 will replace
-   * the body with a real ``POST /posts/{id}/seen`` request.
+   * FeedScreen updates the local ``seen`` flag optimistically and calls
+   * this hook; the real ``POST /posts/{id}/seen`` lives in SeenService.
+   * The signature is unchanged from the F06 boundary (DL-F06-02).
    *
    * @param postId - UUID of the post just opened full-screen.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   markSeen: async (postId: string): Promise<void> => {
-    // F07 will plug the network call here (DL-F06-02).
+    await SeenService.markSeen(postId);
   },
 };
 

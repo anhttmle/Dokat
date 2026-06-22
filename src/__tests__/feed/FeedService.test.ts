@@ -80,10 +80,6 @@ describe('FeedService', () => {
     });
   });
 
-  describe('markSeen', () => {
-    it('resolves without issuing a network call (F07 hook)', async () => {
-      await expect(FeedService.markSeen('p1')).resolves.toBeUndefined();
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-  });
+  // markSeen now delegates to SeenService (DL-F07-05); that delegation
+  // is covered by __tests__/seen/FeedServiceMarkSeen.test.ts.
 });

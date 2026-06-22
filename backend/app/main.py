@@ -9,6 +9,7 @@ from app.routers.friends import router as friends_router
 from app.routers.pets import router as pets_router
 from app.routers.posts import router as posts_router
 from app.routers.profile import router as profile_router
+from app.routers.seen import router as seen_router
 
 app = FastAPI(title="ME API", version="0.1.0")
 
@@ -19,6 +20,7 @@ app.include_router(pets_router)
 app.include_router(friends_router)
 app.include_router(posts_router)
 app.include_router(feed_router)
+app.include_router(seen_router)
 
 
 @app.get("/health")
