@@ -11,7 +11,7 @@
 
 ## Tổng quan sản phẩm
 
-PawSnap là mạng xã hội dành riêng cho chủ thú cưng (chó/mèo), cho phép gửi
+Dokat là mạng xã hội dành riêng cho chủ thú cưng (chó/mèo), cho phép gửi
 ảnh chụp thú cưng đến bạn bè theo thời gian thực — tương tự Locket, nhưng tập
 trung hoàn toàn vào pet content. Nội dung chỉ gồm ảnh chó/mèo, không có ảnh
 người.
