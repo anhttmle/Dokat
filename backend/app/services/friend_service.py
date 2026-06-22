@@ -9,7 +9,6 @@ Refs: Design §2.2, §3.2, §3.3, §3.4
 """
 
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -57,9 +56,7 @@ def _count_friends(db: Session, user_id: str) -> int:
     uid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
     return (
         db.query(Friendship)
-        .filter(
-            or_(Friendship.user_id_a == uid, Friendship.user_id_b == uid)
-        )
+        .filter(or_(Friendship.user_id_a == uid, Friendship.user_id_b == uid))
         .count()
     )
 
@@ -134,18 +131,14 @@ def list_friends(db: Session, user_id: str) -> list[dict]:
     uid = uuid.UUID(user_id)
     rows = (
         db.query(Friendship)
-        .filter(
-            or_(Friendship.user_id_a == uid, Friendship.user_id_b == uid)
-        )
+        .filter(or_(Friendship.user_id_a == uid, Friendship.user_id_b == uid))
         .order_by(Friendship.created_at.desc())
         .all()
     )
 
     result = []
     for row in rows:
-        friend_uuid = (
-            row.user_id_b if row.user_id_a == uid else row.user_id_a
-        )
+        friend_uuid = row.user_id_b if row.user_id_a == uid else row.user_id_a
         friend_user = db.query(User).filter(User.id == friend_uuid).first()
         result.append(
             {

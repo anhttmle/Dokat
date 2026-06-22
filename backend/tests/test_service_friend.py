@@ -8,8 +8,7 @@ Uses SQLite in-memory DB so no PostgreSQL instance is needed.
 Refs: Design §6.1, AC-F03-2, AC-F03-5, AC-F03-7, AC-F03-8, AC-F03-9
 """
 
-import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import create_engine
@@ -49,7 +48,7 @@ def db_session() -> Session:
 
 def _make_user(db: Session, *, firebase_uid: str) -> User:
     """Insert and return a minimal User row."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid=firebase_uid,
         is_anonymous=False,

@@ -6,7 +6,7 @@ service is implemented in task 3.2.
 Refs: AC-F02-1, AC-F02-2; Design §3.1, §3.2
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import boto3
@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 
 import app.models.pet_profile  # noqa: F401  (register table on Base)
 from app.main import app
-from app.models.user import Base, OAuthProvider, User, UserProvider
+from app.models.user import Base, User
 from app.routers.auth import get_db
 
 _HEADERS = {"Authorization": "Bearer fake-token"}
@@ -58,7 +58,7 @@ def _make_user(
     is_anonymous: bool = False,
 ) -> User:
     """Insert and return a user row."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid=firebase_uid,
         is_anonymous=is_anonymous,
@@ -131,16 +131,12 @@ def test_patch_display_name_updates_db(
     assert response.json()["display_name"] == "New Name"
     db_session.expire_all()
     user = (
-        db_session.query(User)
-        .filter(User.firebase_uid == "owner-uid")
-        .one()
+        db_session.query(User).filter(User.firebase_uid == "owner-uid").one()
     )
     assert user.display_name == "New Name"
 
 
-def test_patch_avatar_url(
-    client: TestClient, db_session: Session
-) -> None:
+def test_patch_avatar_url(client: TestClient, db_session: Session) -> None:
     """PATCH /profile/me with avatar_url updates the DB."""
     _make_user(db_session, avatar_url=None)
     new_url = "https://cdn.pawsnap.app/avatars/users/new.jpg"
@@ -210,15 +206,9 @@ def test_oauth_autofill_sets_display_name_when_null(
         client.post("/auth/link", headers=_HEADERS)
 
     db_session.expire_all()
-    user = (
-        db_session.query(User)
-        .filter(User.firebase_uid == "anon-uid")
-        .one()
-    )
+    user = db_session.query(User).filter(User.firebase_uid == "anon-uid").one()
     assert user.display_name == "Google User"
-    assert user.avatar_url == (
-        "https://lh3.googleusercontent.com/photo.jpg"
-    )
+    assert user.avatar_url == ("https://lh3.googleusercontent.com/photo.jpg")
 
 
 def test_presigned_url_owner_avatar(

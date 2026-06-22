@@ -92,9 +92,7 @@ def send_friend_notification(
             the notification body.  Falls back to "Someone" if ``None``.
     """
     if not initiator_fcm_token:
-        logger.debug(
-            "Skipping FCM: Initiator has no fcm_token registered"
-        )
+        logger.debug("Skipping FCM: Initiator has no fcm_token registered")
         return
 
     name = scanner_display_name or "Someone"

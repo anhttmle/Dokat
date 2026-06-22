@@ -11,7 +11,7 @@ Refs: Design §1.1, §1.2, §2.3, §3.1, §3.2
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import redis.asyncio
 
@@ -77,7 +77,7 @@ class OTPService:
             and ``expires_at``.
         """
         token = str(uuid.uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=OTP_TTL_SECONDS)
 
         payload = json.dumps(
@@ -87,13 +87,9 @@ class OTPService:
                 "used": False,
             }
         )
-        await self._redis.set(
-            _otp_key(token), payload, ex=OTP_TTL_SECONDS
-        )
+        await self._redis.set(_otp_key(token), payload, ex=OTP_TTL_SECONDS)
 
-        deep_link = (
-            f"{settings.deep_link_base}/add-friend?token={token}"
-        )
+        deep_link = f"{settings.deep_link_base}/add-friend?token={token}"
         return GenerateQRResponse(
             token=token,
             deep_link=deep_link,

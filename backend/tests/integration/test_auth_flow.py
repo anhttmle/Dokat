@@ -15,7 +15,6 @@ import os
 import uuid
 
 import httpx
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -25,14 +24,11 @@ _EMULATOR_HOST = os.environ.get(
     "FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099"
 )
 _PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "demo-test")
-_IDP_BASE = (
-    f"http://{_EMULATOR_HOST}"
-    f"/identitytoolkit.googleapis.com/v1"
-)
+_IDP_BASE = f"http://{_EMULATOR_HOST}" f"/identitytoolkit.googleapis.com/v1"
 _API_KEY = "fake-api-key"
 
 
-# ── Emulator REST helpers ─────────────────────────────────────────────────────
+# ── Emulator REST helpers ──────────────────────────────────────────────
 
 
 def _b64url(data: dict) -> str:
@@ -96,9 +92,7 @@ def _sign_in_with_google(
     """
     fake_google_token = _make_google_id_token(sub=google_sub, email=email)
     body: dict = {
-        "postBody": (
-            f"id_token={fake_google_token}&providerId=google.com"
-        ),
+        "postBody": (f"id_token={fake_google_token}&providerId=google.com"),
         "requestUri": "http://localhost",
         "returnSecureToken": True,
         "returnIdpCredential": True,
@@ -119,7 +113,7 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-# ── Tests ─────────────────────────────────────────────────────────────────────
+# ── Tests ──────────────────────────────────────────────────────────────
 
 
 def test_full_guest_session_flow(
@@ -175,9 +169,7 @@ def test_full_link_flow(
     """
     # Step 1: anonymous user + session
     firebase_uid, anon_token = _create_anonymous_user()
-    resp = integration_client.post(
-        "/auth/session", headers=_auth(anon_token)
-    )
+    resp = integration_client.post("/auth/session", headers=_auth(anon_token))
     assert resp.status_code == 200
     user_id = resp.json()["user_id"]
 
@@ -189,9 +181,7 @@ def test_full_link_flow(
     assert linked_uid == firebase_uid  # same Firebase user after link
 
     # Step 3: notify backend of the link
-    resp = integration_client.post(
-        "/auth/link", headers=_auth(linked_token)
-    )
+    resp = integration_client.post("/auth/link", headers=_auth(linked_token))
     assert resp.status_code == 200
     body = resp.json()
     assert body["user_id"] == user_id
@@ -232,9 +222,7 @@ def test_data_preserved_after_link(
     Refs: AC-F01-5
     """
     firebase_uid, anon_token = _create_anonymous_user()
-    resp = integration_client.post(
-        "/auth/session", headers=_auth(anon_token)
-    )
+    resp = integration_client.post("/auth/session", headers=_auth(anon_token))
     assert resp.status_code == 200
     user_id_before = resp.json()["user_id"]
 
@@ -243,9 +231,7 @@ def test_data_preserved_after_link(
     _, linked_token = _sign_in_with_google(
         google_sub=google_sub, anon_id_token=anon_token
     )
-    resp = integration_client.post(
-        "/auth/link", headers=_auth(linked_token)
-    )
+    resp = integration_client.post("/auth/link", headers=_auth(linked_token))
     assert resp.status_code == 200
     user_id_after = resp.json()["user_id"]
 
@@ -280,9 +266,7 @@ def test_reinstall_guest_creates_new_uid(
     """
     # First install
     firebase_uid_a, token_a = _create_anonymous_user()
-    resp = integration_client.post(
-        "/auth/session", headers=_auth(token_a)
-    )
+    resp = integration_client.post("/auth/session", headers=_auth(token_a))
     assert resp.status_code == 200
     user_id_a = resp.json()["user_id"]
 
@@ -290,9 +274,7 @@ def test_reinstall_guest_creates_new_uid(
     firebase_uid_b, token_b = _create_anonymous_user()
     assert firebase_uid_b != firebase_uid_a  # emulator gives different UID
 
-    resp = integration_client.post(
-        "/auth/session", headers=_auth(token_b)
-    )
+    resp = integration_client.post("/auth/session", headers=_auth(token_b))
     assert resp.status_code == 200
     user_id_b = resp.json()["user_id"]
 
@@ -326,9 +308,7 @@ def test_reinstall_linked_restores_account(
     """
     # Step 1: create guest + link Google
     firebase_uid, anon_token = _create_anonymous_user()
-    resp = integration_client.post(
-        "/auth/session", headers=_auth(anon_token)
-    )
+    resp = integration_client.post("/auth/session", headers=_auth(anon_token))
     assert resp.status_code == 200
     original_user_id = resp.json()["user_id"]
 
@@ -336,17 +316,13 @@ def test_reinstall_linked_restores_account(
     _, linked_token = _sign_in_with_google(
         google_sub=google_sub, anon_id_token=anon_token
     )
-    resp = integration_client.post(
-        "/auth/link", headers=_auth(linked_token)
-    )
+    resp = integration_client.post("/auth/link", headers=_auth(linked_token))
     assert resp.status_code == 200
     assert resp.json()["user_id"] == original_user_id
 
     # Step 2: simulate reinstall → sign in with the same Google account
     # Firebase emulator returns the same firebase_uid (the linked account)
-    restored_uid, restore_token = _sign_in_with_google(
-        google_sub=google_sub
-    )
+    restored_uid, restore_token = _sign_in_with_google(google_sub=google_sub)
     assert restored_uid == firebase_uid  # same Firebase user, not new one
 
     # Step 3: session after reinstall must restore the original account

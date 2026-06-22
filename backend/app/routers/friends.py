@@ -50,15 +50,9 @@ router = APIRouter(prefix="/friends", tags=["friends"])
 def _get_user_id(request: Request, db: Session) -> str:
     """Resolve firebase_uid → internal user UUID string."""
     firebase_uid: str = request.state.firebase_uid
-    user = (
-        db.query(User)
-        .filter(User.firebase_uid == firebase_uid)
-        .first()
-    )
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
     if user is None:
-        raise UserNotFoundError(
-            f"No user for firebase_uid={firebase_uid!r}"
-        )
+        raise UserNotFoundError(f"No user for firebase_uid={firebase_uid!r}")
     return str(user.id)
 
 

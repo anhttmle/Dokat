@@ -1,6 +1,6 @@
 """Shared pytest fixtures for the backend test suite."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

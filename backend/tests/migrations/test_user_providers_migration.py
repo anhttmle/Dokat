@@ -76,7 +76,7 @@ def test_user_providers_fk(db_engine):
 
 
 def test_provider_uid_unique_per_provider(db_engine, sample_user_id):
-    """Two rows with same (provider, provider_uid) must raise IntegrityError."""
+    """Same (provider, provider_uid) pair must raise IntegrityError."""
     with db_engine.connect() as conn:
         conn.execute(
             text(_INSERT_PROVIDER),
@@ -128,9 +128,7 @@ def test_multi_provider_same_user(db_engine, sample_user_id):
 
     with db_engine.connect() as conn:
         result = conn.execute(
-            text(
-                "SELECT COUNT(*) FROM user_providers WHERE user_id = :uid"
-            ),
+            text("SELECT COUNT(*) FROM user_providers WHERE user_id = :uid"),
             {"uid": sample_user_id},
         )
         assert result.scalar() == 2

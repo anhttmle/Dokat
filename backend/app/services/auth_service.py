@@ -1,6 +1,6 @@
 """Business logic for authentication flows."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ def _ensure_utc(dt: datetime) -> datetime:
     This normalises both for comparison.
     """
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -31,7 +31,7 @@ def build_session_response(user: User) -> SessionResponse:
     Returns:
         Populated ``SessionResponse``.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     force_link_at = (
         _ensure_utc(user.force_link_at) if user.force_link_at else None
@@ -107,9 +107,7 @@ def link_provider(
         target_user_id = existing.user_id
         db.delete(current_user)
         db.commit()
-        target_user = (
-            db.query(User).filter(User.id == target_user_id).one()
-        )
+        target_user = db.query(User).filter(User.id == target_user_id).one()
         merged = True
     else:
         target_user = current_user

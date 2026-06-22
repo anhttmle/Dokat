@@ -13,3 +13,5 @@ moto[s3]
 redis[hiredis]
 fakeredis
 lupa
+ruff
+black

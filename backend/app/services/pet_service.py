@@ -1,7 +1,7 @@
 """Business logic for pet profile flows (F02)."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import nullslast
 from sqlalchemy.orm import Session
@@ -40,11 +40,7 @@ def assert_can_create_pet(db: Session, user_id: uuid.UUID) -> None:
         db: Active SQLAlchemy session.
         user_id: Owner user UUID.
     """
-    count = (
-        db.query(PetProfile)
-        .filter(PetProfile.user_id == user_id)
-        .count()
-    )
+    count = db.query(PetProfile).filter(PetProfile.user_id == user_id).count()
     if count >= FREE_USER_PET_LIMIT:
         raise PetLimitReachedError()
 
@@ -57,11 +53,7 @@ def list_pets(db: Session, firebase_uid: str) -> list[PetResponse]:
         firebase_uid: Firebase UID from the verified ID token.
     """
     user = _get_user_or_raise(db, firebase_uid)
-    pets = (
-        db.query(PetProfile)
-        .filter(PetProfile.user_id == user.id)
-        .all()
-    )
+    pets = db.query(PetProfile).filter(PetProfile.user_id == user.id).all()
     return [_to_response(p) for p in pets]
 
 
@@ -215,7 +207,7 @@ def link_photo(
     return LinkPhotoResponse(
         pet_id=pet_id,
         photo_id=photo_id,
-        linked_at=datetime.now(timezone.utc),
+        linked_at=datetime.now(UTC),
     )
 
 
@@ -265,7 +257,7 @@ def get_pet_photos(
         normalised = before.replace(" ", "+")
         cursor_dt = datetime.fromisoformat(normalised)
         if cursor_dt.tzinfo is None:
-            cursor_dt = cursor_dt.replace(tzinfo=timezone.utc)
+            cursor_dt = cursor_dt.replace(tzinfo=UTC)
         query = query.filter(Photo.taken_at < cursor_dt)
 
     query = query.order_by(
@@ -300,11 +292,7 @@ def get_pet_photos(
 
 def _get_user_or_raise(db: Session, firebase_uid: str) -> User:
     """Fetch the User row or raise ValueError."""
-    user = (
-        db.query(User)
-        .filter(User.firebase_uid == firebase_uid)
-        .first()
-    )
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
     if user is None:
         raise ValueError(f"User not found: {firebase_uid}")
     return user

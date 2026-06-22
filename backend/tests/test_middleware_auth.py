@@ -24,9 +24,7 @@ def _make_test_app() -> FastAPI:
 
     @test_app.get("/probe")
     async def probe(request: Request) -> JSONResponse:
-        return JSONResponse(
-            {"firebase_uid": request.state.firebase_uid}
-        )
+        return JSONResponse({"firebase_uid": request.state.firebase_uid})
 
     return test_app
 

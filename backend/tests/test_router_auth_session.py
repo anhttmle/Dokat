@@ -6,7 +6,7 @@ complete.
 Refs: FR-1, FR-2, FR-6, FR-9; AC-F01-1, AC-F01-4, AC-F01-6
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -85,7 +85,7 @@ def test_force_link_false_before_7_days(
     client: TestClient, db_session: Session
 ) -> None:
     """force_link_at = tomorrow → force_link_required=False."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid="user-force-false",
         is_anonymous=True,
@@ -108,7 +108,7 @@ def test_force_link_true_at_7_days(
     client: TestClient, db_session: Session
 ) -> None:
     """force_link_at in the past → force_link_required=True."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid="user-force-true",
         is_anonymous=True,
@@ -143,7 +143,7 @@ def test_providers_list_populated_for_linked_user(
     client: TestClient, db_session: Session
 ) -> None:
     """User with one google user_providers row → providers=["google"]."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid="linked-user-uid",
         is_anonymous=False,

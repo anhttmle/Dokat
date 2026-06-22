@@ -44,9 +44,7 @@ class Photo(Base):
         index=True,
     )
     cdn_url: Mapped[str] = mapped_column(Text, nullable=False)
-    taken_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

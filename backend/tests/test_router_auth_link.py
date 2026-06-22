@@ -6,7 +6,7 @@ is complete.
 Refs: FR-7, FR-8, FR-11; AC-F01-5, AC-F01-8
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -102,7 +102,7 @@ def _seed_user(
     anonymous: bool = True,
 ) -> User:
     """Insert a minimal User row and return it."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid=firebase_uid,
         is_anonymous=anonymous,
@@ -115,9 +115,7 @@ def _seed_user(
     return user
 
 
-def test_link_single_provider(
-    client: TestClient, db_session: Session
-) -> None:
+def test_link_single_provider(client: TestClient, db_session: Session) -> None:
     """Token with google provider → user_providers created.
 
     After a successful link:
@@ -142,9 +140,7 @@ def test_link_single_provider(
     assert body.get("merged") is False
 
     user = (
-        db_session.query(User)
-        .filter_by(firebase_uid="user-single-link")
-        .one()
+        db_session.query(User).filter_by(firebase_uid="user-single-link").one()
     )
     assert user.is_anonymous is False
     assert db_session.query(UserProvider).count() == 1
@@ -178,9 +174,7 @@ def test_link_multiple_providers(
     assert db_session.query(UserProvider).count() == 2
 
 
-def test_link_idempotent(
-    client: TestClient, db_session: Session
-) -> None:
+def test_link_idempotent(client: TestClient, db_session: Session) -> None:
     """Same provider linked twice → no duplicate row, returns 200.
 
     The second call must not create a second UserProvider row and
@@ -233,10 +227,7 @@ def test_link_merge_existing_account(
     assert body["user_id"] == str(user_b.id)
 
     assert (
-        db_session.query(User)
-        .filter_by(firebase_uid="guest-uid")
-        .count()
-        == 0
+        db_session.query(User).filter_by(firebase_uid="guest-uid").count() == 0
     )
 
 

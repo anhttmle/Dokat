@@ -6,8 +6,7 @@ endpoints are implemented in later F02 tasks.
 Refs: Design 3.4-3.10, 6.1
 """
 
-import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -53,7 +52,7 @@ def _make_user(
     db_session: Session, *, firebase_uid: str = "pet-owner-uid"
 ) -> User:
     """Insert and return a user row."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid=firebase_uid,
         is_anonymous=False,
@@ -100,7 +99,7 @@ def _make_photo(
         user_id=user.id,
         pet_id=pet.id if pet is not None else None,
         cdn_url=cdn_url,
-        taken_at=taken_at or datetime.now(timezone.utc),
+        taken_at=taken_at or datetime.now(UTC),
     )
     db_session.add(photo)
     db_session.commit()
@@ -203,9 +202,7 @@ def test_get_pets_returns_list(
     assert len(response.json()["pets"]) == 1
 
 
-def test_get_pets_empty_list(
-    client: TestClient, db_session: Session
-) -> None:
+def test_get_pets_empty_list(client: TestClient, db_session: Session) -> None:
     """A user with no pets gets an empty list."""
     _make_user(db_session)
     with patch("firebase_admin.auth.verify_id_token") as mock:
@@ -225,9 +222,7 @@ def test_get_pet_not_owned_returns_404(  # noqa: E501
     other_pet = _make_pet(db_session, other)
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
-        response = client.get(
-            f"/pets/{other_pet.id}", headers=_HEADERS
-        )
+        response = client.get(f"/pets/{other_pet.id}", headers=_HEADERS)
 
     assert response.status_code == 404
 
@@ -237,9 +232,7 @@ def test_patch_pet_partial_update(
 ) -> None:
     """Patching name leaves species and gender unchanged."""
     user = _make_user(db_session)
-    pet = _make_pet(
-        db_session, user, name="OldName", species=PetSpecies.dog
-    )
+    pet = _make_pet(db_session, user, name="OldName", species=PetSpecies.dog)
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
         response = client.patch(
@@ -254,9 +247,7 @@ def test_patch_pet_partial_update(
     assert body["species"] == "dog"
 
 
-def test_link_photo_success(
-    client: TestClient, db_session: Session
-) -> None:
+def test_link_photo_success(client: TestClient, db_session: Session) -> None:
     """Linking an unlinked photo returns 200 with link metadata.
 
     Refs: FR-10; Design §3.9; DL-F02-03, DL-F02-05
@@ -302,9 +293,7 @@ def test_link_photo_already_linked_returns_409(
     assert response.json()["error"] == "PHOTO_ALREADY_LINKED"
 
 
-def test_get_pet_photos_empty(
-    client: TestClient, db_session: Session
-) -> None:
+def test_get_pet_photos_empty(client: TestClient, db_session: Session) -> None:
     """A pet with no photos returns an empty timeline.
 
     Refs: Design §3.10; DL-F02-03
@@ -313,9 +302,7 @@ def test_get_pet_photos_empty(
     pet = _make_pet(db_session, user)
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
-        response = client.get(
-            f"/pets/{pet.id}/photos", headers=_HEADERS
-        )
+        response = client.get(f"/pets/{pet.id}/photos", headers=_HEADERS)
 
     assert response.status_code == 200
     body = response.json()
@@ -330,7 +317,7 @@ def test_get_pet_photos_ordered_by_taken_at_desc(
 
     Refs: Design §2.3, §3.10; DL-F02-03
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
     _make_photo(db_session, user, pet=pet, taken_at=now - timedelta(days=2))
@@ -339,9 +326,7 @@ def test_get_pet_photos_ordered_by_taken_at_desc(
 
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
-        response = client.get(
-            f"/pets/{pet.id}/photos", headers=_HEADERS
-        )
+        response = client.get(f"/pets/{pet.id}/photos", headers=_HEADERS)
 
     assert response.status_code == 200
     photos = response.json()["photos"]
@@ -357,7 +342,7 @@ def test_get_pet_photos_pagination_returns_next_cursor(
 
     Refs: Design §3.10; DL-F02-03
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
     for i in range(25):
@@ -388,7 +373,7 @@ def test_get_pet_photos_before_cursor_filters_correctly(
 
     Refs: Design §3.10; DL-F02-03, DL-F02-05
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = _make_user(db_session)
     pet = _make_pet(db_session, user)
     oldest = now - timedelta(days=2)
@@ -426,8 +411,6 @@ def test_get_pet_photos_not_owned_returns_404(
 
     with patch("firebase_admin.auth.verify_id_token") as mock:
         mock.return_value = {"uid": "pet-owner-uid"}
-        response = client.get(
-            f"/pets/{other_pet.id}/photos", headers=_HEADERS
-        )
+        response = client.get(f"/pets/{other_pet.id}/photos", headers=_HEADERS)
 
     assert response.status_code == 404

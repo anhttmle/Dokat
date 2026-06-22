@@ -34,9 +34,7 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
         - Firebase SDK failure     → 503 AUTH_SERVICE_UNAVAILABLE
     """
 
-    async def dispatch(
-        self, request: Request, call_next
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next) -> Response:
         """Verify token and inject firebase_uid, or return error."""
         auth_header = request.headers.get("Authorization", "")
 
@@ -49,7 +47,7 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        token = auth_header[len(_BEARER_PREFIX):]
+        token = auth_header[len(_BEARER_PREFIX) :]
 
         try:
             decoded = firebase_admin.auth.verify_id_token(token)
@@ -75,8 +73,7 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": "AUTH_SERVICE_UNAVAILABLE",
                     "message": (
-                        "Authentication service is temporarily"
-                        " unavailable"
+                        "Authentication service is temporarily" " unavailable"
                     ),
                 },
             )
@@ -87,9 +84,7 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
 
 
 async def verify_firebase_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(
-        _bearer
-    ),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> dict:
     """FastAPI dependency that verifies the Firebase ID Token.
 
@@ -106,9 +101,7 @@ async def verify_firebase_token(
         )
 
     try:
-        decoded = firebase_admin.auth.verify_id_token(
-            credentials.credentials
-        )
+        decoded = firebase_admin.auth.verify_id_token(credentials.credentials)
     except firebase_admin.auth.ExpiredIdTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

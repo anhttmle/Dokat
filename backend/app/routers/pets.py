@@ -113,9 +113,7 @@ def patch_pet(
     """Apply a partial update to a pet profile."""
     firebase_uid: str = request.state.firebase_uid
     try:
-        return pet_service.patch_pet(
-            db, firebase_uid, pet_id, payload
-        )
+        return pet_service.patch_pet(db, firebase_uid, pet_id, payload)
     except pet_service.PetNotFoundError:
         return JSONResponse(
             status_code=404,

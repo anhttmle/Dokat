@@ -8,7 +8,7 @@ Uses ``pytest-mock`` to mock the service layer.
 Refs: Design §3, §6.2, AC-F03-1 through AC-F03-9
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 
 import app.models.friendship  # noqa: F401  register table on Base
 from app.main import app
-from app.models.user import Base, OAuthProvider, User, UserProvider
+from app.models.user import Base, User
 from app.routers.auth import get_db
 from app.schemas.friend import GenerateQRResponse
 from app.services.friend_service import (
@@ -85,12 +85,10 @@ def client(db_session: Session, mock_verify_id_token: MagicMock) -> TestClient:
 
 def _ensure_user(db: Session, *, firebase_uid: str) -> User:
     """Insert user if not already present."""
-    existing = db.query(User).filter(
-        User.firebase_uid == firebase_uid
-    ).first()
+    existing = db.query(User).filter(User.firebase_uid == firebase_uid).first()
     if existing:
         return existing
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid=firebase_uid,
         is_anonymous=False,
@@ -113,8 +111,9 @@ def test_generate_qr_success(client: TestClient) -> None:
     fake_response = GenerateQRResponse(**_FAKE_QR)
     mock_svc = MagicMock()
     mock_svc.generate = AsyncMock(return_value=fake_response)
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
     ):
         resp = client.post("/friends/qr/generate", headers=_HEADERS)
 
@@ -144,20 +143,24 @@ def test_scan_qr_success(client: TestClient) -> None:
         return_value=OTPPayload(initiator_id="abc-friend-uuid")
     )
     mock_notif_instance = MagicMock()
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        return_value=MagicMock(
-            id="friend-row-uuid",
-            created_at=datetime(2026, 6, 21, 4, 2, 30, tzinfo=timezone.utc),
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            return_value=MagicMock(
+                id="friend-row-uuid",
+                created_at=datetime(2026, 6, 21, 4, 2, 30, tzinfo=UTC),
+            ),
         ),
-    ), patch(
-        "app.routers.friends.get_friend_profile",
-        return_value=_FAKE_FRIEND,
-    ), patch(
-        "app.routers.friends.NotificationService",
-        return_value=mock_notif_instance,
+        patch(
+            "app.routers.friends.get_friend_profile",
+            return_value=_FAKE_FRIEND,
+        ),
+        patch(
+            "app.routers.friends.NotificationService",
+            return_value=mock_notif_instance,
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -175,8 +178,9 @@ def test_scan_qr_expired(client: TestClient) -> None:
     """410 with error_code QR_EXPIRED."""
     mock_svc = MagicMock()
     mock_svc.consume = AsyncMock(side_effect=OTPExpiredError())
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -192,8 +196,9 @@ def test_scan_qr_used(client: TestClient) -> None:
     """410 with error_code QR_USED."""
     mock_svc = MagicMock()
     mock_svc.consume = AsyncMock(side_effect=OTPUsedError())
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -211,11 +216,13 @@ def test_scan_qr_self(client: TestClient) -> None:
     mock_svc.consume = AsyncMock(
         return_value=OTPPayload(initiator_id="self-uuid")
     )
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        side_effect=SelfFriendError(),
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            side_effect=SelfFriendError(),
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -233,11 +240,13 @@ def test_scan_qr_already_friends(client: TestClient) -> None:
     mock_svc.consume = AsyncMock(
         return_value=OTPPayload(initiator_id="other-uuid")
     )
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        side_effect=AlreadyFriendsError(),
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            side_effect=AlreadyFriendsError(),
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -254,11 +263,13 @@ def test_scan_qr_limit_initiator(client: TestClient) -> None:
     mock_svc.consume = AsyncMock(
         return_value=OTPPayload(initiator_id="full-uuid")
     )
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        side_effect=FriendLimitError(side="initiator"),
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            side_effect=FriendLimitError(side="initiator"),
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -276,11 +287,13 @@ def test_scan_qr_limit_scanner(client: TestClient) -> None:
     mock_svc.consume = AsyncMock(
         return_value=OTPPayload(initiator_id="other-uuid")
     )
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        side_effect=FriendLimitError(side="scanner"),
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            side_effect=FriendLimitError(side="scanner"),
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -332,26 +345,28 @@ def test_get_friends_unauthenticated() -> None:
 
 def test_delete_friend_success(client: TestClient) -> None:
     """204 when friendship is deleted."""
-    with patch(
-        "app.routers.friends.get_friend_profile",
-        return_value=_FAKE_FRIEND,
-    ), patch("app.routers.friends.delete_friendship", return_value=None):
-        resp = client.delete(
-            "/friends/some-friend-uuid", headers=_HEADERS
-        )
+    with (
+        patch(
+            "app.routers.friends.get_friend_profile",
+            return_value=_FAKE_FRIEND,
+        ),
+        patch("app.routers.friends.delete_friendship", return_value=None),
+    ):
+        resp = client.delete("/friends/some-friend-uuid", headers=_HEADERS)
 
     assert resp.status_code == 204
 
 
 def test_delete_friend_not_found(client: TestClient) -> None:
     """204 even when friendship does not exist (idempotent)."""
-    with patch(
-        "app.routers.friends.get_friend_profile",
-        return_value=_FAKE_FRIEND,
-    ), patch("app.routers.friends.delete_friendship", return_value=None):
-        resp = client.delete(
-            "/friends/nonexistent-uuid", headers=_HEADERS
-        )
+    with (
+        patch(
+            "app.routers.friends.get_friend_profile",
+            return_value=_FAKE_FRIEND,
+        ),
+        patch("app.routers.friends.delete_friendship", return_value=None),
+    ):
+        resp = client.delete("/friends/nonexistent-uuid", headers=_HEADERS)
 
     assert resp.status_code == 204
 
@@ -362,9 +377,7 @@ def test_delete_friend_user_not_found(client: TestClient) -> None:
         "app.routers.friends.get_friend_profile",
         side_effect=UserNotFoundError(),
     ):
-        resp = client.delete(
-            "/friends/nonexistent-uuid", headers=_HEADERS
-        )
+        resp = client.delete("/friends/nonexistent-uuid", headers=_HEADERS)
 
     assert resp.status_code == 404
     assert resp.json()["error_code"] == "USER_NOT_FOUND"
@@ -385,9 +398,7 @@ def test_delete_friend_unauthenticated() -> None:
 
 def test_put_fcm_token(client: TestClient) -> None:
     """204 when FCM token is saved successfully."""
-    with patch(
-        "app.routers.friends.save_fcm_token", return_value=None
-    ):
+    with patch("app.routers.friends.save_fcm_token", return_value=None):
         resp = client.put(
             "/friends/fcm-token",
             json={"fcm_token": "cXV4eW..."},
@@ -414,7 +425,7 @@ def test_put_fcm_token_empty(client: TestClient) -> None:
 
 _FAKE_FRIENDSHIP = MagicMock(
     id="friend-row-uuid",
-    created_at=datetime(2026, 6, 21, 4, 2, 30, tzinfo=timezone.utc),
+    created_at=datetime(2026, 6, 21, 4, 2, 30, tzinfo=UTC),
 )
 
 
@@ -426,17 +437,21 @@ def test_notification_sent_on_scan(client: TestClient) -> None:
     )
     mock_notif_instance = MagicMock()
 
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_otp_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        return_value=_FAKE_FRIENDSHIP,
-    ), patch(
-        "app.routers.friends.get_friend_profile",
-        return_value=_FAKE_FRIEND,
-    ), patch(
-        "app.routers.friends.NotificationService",
-        return_value=mock_notif_instance,
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_otp_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            return_value=_FAKE_FRIENDSHIP,
+        ),
+        patch(
+            "app.routers.friends.get_friend_profile",
+            return_value=_FAKE_FRIEND,
+        ),
+        patch(
+            "app.routers.friends.NotificationService",
+            return_value=mock_notif_instance,
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",
@@ -461,17 +476,21 @@ def test_notification_failure_does_not_rollback(
         "FCM unavailable"
     )
 
-    with patch("app.routers.friends.get_redis_client"), patch(
-        "app.routers.friends.OTPService", return_value=mock_otp_svc
-    ), patch(
-        "app.routers.friends.create_friendship",
-        return_value=_FAKE_FRIENDSHIP,
-    ), patch(
-        "app.routers.friends.get_friend_profile",
-        return_value=_FAKE_FRIEND,
-    ), patch(
-        "app.routers.friends.NotificationService",
-        return_value=mock_notif_instance,
+    with (
+        patch("app.routers.friends.get_redis_client"),
+        patch("app.routers.friends.OTPService", return_value=mock_otp_svc),
+        patch(
+            "app.routers.friends.create_friendship",
+            return_value=_FAKE_FRIENDSHIP,
+        ),
+        patch(
+            "app.routers.friends.get_friend_profile",
+            return_value=_FAKE_FRIEND,
+        ),
+        patch(
+            "app.routers.friends.NotificationService",
+            return_value=mock_notif_instance,
+        ),
     ):
         resp = client.post(
             "/friends/qr/scan",

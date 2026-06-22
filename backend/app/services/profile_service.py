@@ -6,9 +6,7 @@ from app.models.user import User
 from app.schemas.profile import OwnerProfileResponse, PatchOwnerProfileRequest
 
 
-def get_owner_profile(
-    db: Session, firebase_uid: str
-) -> OwnerProfileResponse:
+def get_owner_profile(db: Session, firebase_uid: str) -> OwnerProfileResponse:
     """Return the owner profile for the authenticated user.
 
     Args:
@@ -72,9 +70,7 @@ def autofill_from_oauth(
         display_name: Provider display name from the Firebase token.
         avatar_url: Provider photo URL from the Firebase token.
     """
-    user = db.query(User).filter(
-        User.firebase_uid == firebase_uid
-    ).first()
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
     if user is None:
         return
 
@@ -91,9 +87,7 @@ def autofill_from_oauth(
 
 def _get_user_or_raise(db: Session, firebase_uid: str) -> User:
     """Fetch the user or raise ValueError."""
-    user = db.query(User).filter(
-        User.firebase_uid == firebase_uid
-    ).first()
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
     if user is None:
         raise ValueError(f"User not found: {firebase_uid}")
     return user

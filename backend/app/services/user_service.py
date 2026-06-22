@@ -1,6 +1,6 @@
 """CRUD operations for users and user_providers tables."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -22,13 +22,11 @@ def get_or_create_user(db: Session, firebase_uid: str) -> User:
     Returns:
         The existing or newly created ``User`` instance.
     """
-    user = (
-        db.query(User).filter(User.firebase_uid == firebase_uid).first()
-    )
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
     if user is not None:
         return user
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid=firebase_uid,
         is_anonymous=True,

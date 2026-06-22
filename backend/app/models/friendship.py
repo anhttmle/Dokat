@@ -26,7 +26,9 @@ class Friendship(Base):
     __tablename__ = "friendships"
 
     __table_args__ = (
-        UniqueConstraint("user_id_a", "user_id_b", name="friendships_unique_pair"),
+        UniqueConstraint(
+            "user_id_a", "user_id_b", name="friendships_unique_pair"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

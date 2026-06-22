@@ -49,10 +49,7 @@ def test_friendships_table_exists(db_engine):
 
 def test_friendships_columns(db_engine):
     """friendships must contain all columns defined in design §2.2."""
-    cols = {
-        c["name"]
-        for c in inspect(db_engine).get_columns("friendships")
-    }
+    cols = {c["name"] for c in inspect(db_engine).get_columns("friendships")}
     assert cols >= {"id", "user_id_a", "user_id_b", "created_at"}
 
 
@@ -72,8 +69,5 @@ def test_friendships_unique_constraint_exists(db_engine):
 
 def test_users_table_has_fcm_token(db_engine):
     """users table must have the fcm_token column (added in this migration)."""
-    cols = {
-        c["name"]
-        for c in inspect(db_engine).get_columns("users")
-    }
+    cols = {c["name"] for c in inspect(db_engine).get_columns("users")}
     assert "fcm_token" in cols

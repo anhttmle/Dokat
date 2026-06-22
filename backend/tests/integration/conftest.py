@@ -33,9 +33,7 @@ from sqlalchemy.pool import NullPool
 from app.models.user import Base
 from app.routers.auth import get_db
 
-EMULATOR_HOST = os.environ.get(
-    "FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099"
-)
+EMULATOR_HOST = os.environ.get("FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099")
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "demo-test")
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
@@ -62,9 +60,7 @@ def init_firebase_emulator() -> Generator[None, None, None]:
         else:
             cred = credentials.ApplicationDefault()
 
-        firebase_admin.initialize_app(
-            cred, {"projectId": FIREBASE_PROJECT_ID}
-        )
+        firebase_admin.initialize_app(cred, {"projectId": FIREBASE_PROJECT_ID})
 
     yield
 
@@ -90,9 +86,7 @@ def db_session(pg_engine) -> Generator[Session, None, None]:
     yield session
     session.close()
     with pg_engine.connect() as conn:
-        conn.execute(
-            text("TRUNCATE TABLE user_providers, users CASCADE")
-        )
+        conn.execute(text("TRUNCATE TABLE user_providers, users CASCADE"))
         conn.commit()
 
 

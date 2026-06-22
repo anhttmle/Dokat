@@ -12,14 +12,14 @@ from sqlalchemy.sql import func
 from app.models.user import Base
 
 
-class PetSpecies(str, enum.Enum):
+class PetSpecies(enum.StrEnum):
     """Supported pet species (MVP: dog and cat only)."""
 
     dog = "dog"
     cat = "cat"
 
 
-class PetGender(str, enum.Enum):
+class PetGender(enum.StrEnum):
     """Pet gender; ``unknown`` is the default when AI is not confident."""
 
     male = "male"

@@ -37,9 +37,7 @@ class CreatePetRequest(BaseModel):
 
     @field_validator("birthdate")
     @classmethod
-    def birthdate_not_in_future(
-        cls, v: date | None
-    ) -> date | None:
+    def birthdate_not_in_future(cls, v: date | None) -> date | None:
         """Reject birthdate values that are in the future."""
         if v is not None and v > date.today():
             raise ValueError("birthdate cannot be in the future")

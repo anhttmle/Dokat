@@ -86,9 +86,7 @@ def link(
     token_claims: dict = request.state.token_claims
 
     firebase_data: dict = token_claims.get("firebase", {})
-    sign_in_provider: str = firebase_data.get(
-        "sign_in_provider", "anonymous"
-    )
+    sign_in_provider: str = firebase_data.get("sign_in_provider", "anonymous")
     identities: dict = firebase_data.get("identities", {})
 
     provider = _PROVIDER_MAP.get(sign_in_provider)
@@ -99,9 +97,7 @@ def link(
             status_code=422,
             content={
                 "error": "AUTH_PROVIDER_NOT_FOUND",
-                "message": (
-                    "Token does not contain a linked OAuth provider"
-                ),
+                "message": ("Token does not contain a linked OAuth provider"),
             },
         )
 

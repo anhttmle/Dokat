@@ -6,6 +6,8 @@ directly outside of ``app/models/``.
 
 from app.models.friendship import Friendship
 from app.models.pet_profile import PetGender, PetProfile, PetSpecies
+from app.models.post import Post
+from app.models.post_recipient import PostRecipient
 from app.models.user import Base, OAuthProvider, User, UserProvider
 
 __all__ = [
@@ -17,4 +19,6 @@ __all__ = [
     "PetSpecies",
     "PetGender",
     "Friendship",
+    "Post",
+    "PostRecipient",
 ]

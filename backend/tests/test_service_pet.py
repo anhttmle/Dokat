@@ -6,7 +6,7 @@ is implemented in later F02 tasks.
 Refs: Design 4.2, 6.1
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import create_engine
@@ -36,7 +36,7 @@ def db_session() -> Session:
 
 def _make_user(db_session: Session) -> User:
     """Insert and return a user row."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = User(
         firebase_uid="svc-pet-uid",
         is_anonymous=False,

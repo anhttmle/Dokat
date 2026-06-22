@@ -1,5 +1,6 @@
 """SQLAlchemy ORM models for users and user_providers tables."""
 
+import enum
 import uuid
 from datetime import datetime
 
@@ -16,10 +17,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
-import enum
 
-
-class OAuthProvider(str, enum.Enum):
+class OAuthProvider(enum.StrEnum):
     """Supported OAuth providers."""
 
     apple = "apple"

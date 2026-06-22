@@ -10,10 +10,8 @@ DL-006 (F01) for the SQLite-over-PostgreSQL rationale.
 Refs: Design §2.2; FR-3, FR-4
 """
 
-import uuid
-
 import pytest
-from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -86,10 +84,7 @@ def test_pet_profiles_table_exists(db_engine):
 
 def test_pet_profiles_columns(db_engine):
     """pet_profiles must contain all columns defined in design §2.2."""
-    cols = {
-        c["name"]
-        for c in inspect(db_engine).get_columns("pet_profiles")
-    }
+    cols = {c["name"] for c in inspect(db_engine).get_columns("pet_profiles")}
     assert cols >= {
         "id",
         "user_id",
