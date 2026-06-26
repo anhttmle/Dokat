@@ -15,6 +15,15 @@ _bearer = HTTPBearer(auto_error=False)
 
 _BEARER_PREFIX = "Bearer "
 
+# Paths that bypass auth — Swagger UI, OpenAPI schema, health check.
+_PUBLIC_PATHS = frozenset({
+    "/docs",
+    "/docs/oauth2-redirect",
+    "/redoc",
+    "/openapi.json",
+    "/health",
+})
+
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
     """Starlette middleware that verifies the Firebase ID Token.
@@ -36,6 +45,9 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Verify token and inject firebase_uid, or return error."""
+        if request.url.path in _PUBLIC_PATHS:
+            return await call_next(request)
+
         auth_header = request.headers.get("Authorization", "")
 
         if not auth_header.startswith(_BEARER_PREFIX):
