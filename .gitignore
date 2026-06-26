@@ -46,9 +46,9 @@ htmlcov/
 *.log
 
 # =============================================================================
-# Node / React Native (root client)
+# Node / React Native (client/)
 # =============================================================================
-node_modules/
+client/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -57,8 +57,12 @@ yarn-error.log*
 .pnp.*
 
 # React Native build artifacts
-ios/
-android/
+client/ios/build/
+client/ios/Pods/
+client/ios/Podfile.lock
+client/android/build/
+client/android/.gradle/
+client/android/app/build/
 *.jks
 *.p8
 *.p12
@@ -86,8 +90,8 @@ demo/web-build/
 *.env
 *.env.*
 !*.env.example
-google-services.json
-GoogleService-Info.plist
+client/ios/Dokat/GoogleService-Info.plist
+client/android/app/google-services.json
 firebase-adminsdk*.json
 serviceAccountKey*.json
 

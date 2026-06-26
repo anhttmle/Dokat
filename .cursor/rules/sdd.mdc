@@ -23,3 +23,7 @@ alwaysApply: true
 - When in doubt, do LESS not more
 - This is not an enterprise product unless the spec says so
 - Repo source code of each module/service always has Makefile to run on local
+
+## Documentation
+- Update ONBOARDING.md for when anything change that related to onboarding new member
+- Update AGENT.md for helping agent understand the code base on new task

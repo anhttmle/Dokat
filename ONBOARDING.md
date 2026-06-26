@@ -234,10 +234,22 @@ backend/
 **Nguyên tắc:** router không chứa business logic. Mọi xử lý đặt trong
 `services/`. Router chỉ: nhận request → gọi service → trả response / map lỗi.
 
-### Client — Cấu trúc `src/`
+### Client — Cấu trúc `client/`
 
 ```
-src/
+client/
+├── App.tsx              # Root component (Firebase init + Navigation)
+├── index.js             # Entry point (AppRegistry)
+├── package.json
+├── ios/                 # iOS native shell (Xcode project)
+│   ├── Dokat/
+│   │   └── GoogleService-Info.plist  (gitignore'd — tự đặt)
+│   ├── Dokat.xcodeproj
+│   └── Podfile
+├── android/             # Android native shell
+│   └── app/
+│       └── google-services.json  (gitignore'd — tự đặt)
+└── src/
 ├── components/          # UI components tái sử dụng
 │   ├── auth/            # AuthPromptModal, ...
 │   ├── camera/          # CameraPreview, ...
@@ -475,12 +487,13 @@ def client(db_session, mock_verify_id_token) -> TestClient:
 ### Client
 
 ```bash
-# Từ root repo
+# Từ thư mục client/
+cd client
 npm test                 # chạy toàn bộ Jest tests
 npm run test:list        # liệt kê các test files
 ```
 
-Test files nằm trong `src/__tests__/<domain>/`. Số lượng hiện tại: 42 test
+Test files nằm trong `client/src/__tests__/<domain>/`. Số lượng hiện tại: 42 test
 suites, 170 tests.
 
 **Mock pattern chuẩn cho service tests:**
@@ -625,49 +638,61 @@ jobs:
 
 ### 8.2 Frontend — React Native
 
-#### Trạng thái hiện tại
+#### Trạng thái hiện tại ✅
 
-> **Quan trọng:** `src/` hiện chỉ chứa business logic, services, components,
-> và unit tests. Repo **chưa có** React Native app shell (`app.json`,
-> `metro.config.js`, `ios/`, `android/` directories) — không thể build
-> hay chạy trên simulator/device ở thời điểm này.
->
-> Khi team khởi tạo RN project shell, các bước dưới đây sẽ áp dụng.
+React Native app shell đã được khởi tạo và cấu hình xong:
 
-#### Khởi tạo app shell (một lần, chưa thực hiện)
-
-```bash
-# Từ root repo — khởi tạo RN project và merge với code hiện có
-npx react-native init DokatApp --template react-native-template-typescript
-# Sau đó merge ios/, android/, app.json, metro.config.js vào repo
+```
+ME/
+├── client/                        ← Toàn bộ React Native mobile app
+│   ├── App.tsx                    ← Root component (Firebase init + Navigation)
+│   ├── index.js                   ← Entry point (AppRegistry)
+│   ├── ios/
+│   │   ├── Dokat/
+│   │   │   ├── GoogleService-Info.plist  ← Firebase iOS config (gitignore'd)
+│   │   │   ├── AppDelegate.swift
+│   │   │   └── Info.plist         ← Bundle ID: com.carbonix.dokat
+│   │   ├── Dokat.xcodeproj
+│   │   └── Podfile                ← Firebase pods đã được thêm
+│   └── android/
+│       └── app/
+│           └── google-services.json  ← cần thêm thủ công (gitignore'd)
+├── backend/                       ← FastAPI backend
+├── specs/                         ← SDD specs (shared)
+└── demo/                          ← Expo web demo
 ```
 
-#### Cấu hình Firebase Native (bắt buộc)
+#### Cấu hình Firebase Native
 
-`@react-native-firebase` yêu cầu file credentials native đặt đúng vị trí:
+| File | Lấy từ | Đặt tại | Trạng thái |
+|---|---|---|---|
+| `GoogleService-Info.plist` | Firebase Console → Project `dokat-67ae7` → iOS | `client/ios/Dokat/` | ✅ Đã có |
+| `google-services.json` | Firebase Console → Project `dokat-67ae7` → Android | `client/android/app/` | ⏳ Cần thêm |
 
-| File | Lấy từ | Đặt tại |
-|---|---|---|
-| `GoogleService-Info.plist` | Firebase Console → iOS app | `ios/<AppName>/GoogleService-Info.plist` |
-| `google-services.json` | Firebase Console → Android app | `android/app/google-services.json` |
-
-Không commit các file này vào git — thêm vào `.gitignore`.
+Cả hai file đều trong `.gitignore` — mỗi dev phải tự đặt sau khi clone.
 
 #### Build iOS
 
-Yêu cầu: macOS + Xcode 15+, CocoaPods.
+**Yêu cầu:** macOS + **Xcode 15+** (tải từ App Store) + CocoaPods.
 
 ```bash
-# Cài native deps
-cd ios && pod install && cd ..
+# Bước 1 — Cài CocoaPods (một lần)
+brew install cocoapods
 
-# Dev build (chạy trên simulator)
-npx react-native run-ios
+# Bước 2 — Install native pods
+cd client/ios && pod install && cd ../..
 
-# Production build (Archive để upload TestFlight / App Store)
-# Dùng Xcode → Product → Archive
+# Bước 3 — Chạy trên simulator
+cd client && npx react-native run-ios
+# hoặc chỉ định device cụ thể:
+npx react-native run-ios --simulator "iPhone 16 Pro"
+
+# Production build — Xcode → Product → Archive
 # hoặc dùng Fastlane (khuyến nghị cho CI)
 ```
+
+> **Lưu ý:** `pod install` yêu cầu Xcode đầy đủ (không chỉ Command Line Tools).
+> Tải Xcode từ App Store (~10GB) trước khi chạy lệnh này.
 
 #### Build Android
 
@@ -675,21 +700,21 @@ Yêu cầu: Android Studio + JDK 17.
 
 ```bash
 # Dev build (chạy trên emulator hoặc thiết bị thật)
-npx react-native run-android
+cd client && npx react-native run-android
 
 # Release APK (debug signing)
-cd android && ./gradlew assembleRelease
+cd client/android && ./gradlew assembleRelease
 
 # Release AAB (để upload Google Play)
-cd android && ./gradlew bundleRelease
+cd client/android && ./gradlew bundleRelease
 ```
 
-> **Release signing:** cần `android/app/keystore.jks` và cấu hình
-> `android/gradle.properties`. Hỏi team trưởng để lấy keystore.
+> **Release signing:** cần `client/android/app/keystore.jks` và cấu hình
+> `client/android/gradle.properties`. Hỏi team trưởng để lấy keystore.
 
 #### Cấu hình `BASE_URL` cho từng môi trường
 
-Các service trong `src/services/` hiện hardcode:
+Các service trong `client/src/services/` hiện hardcode:
 
 ```typescript
 const BASE_URL = 'http://localhost:8000';
@@ -726,8 +751,8 @@ const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:8000';
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: npm ci
-      - run: npm test -- --ci --coverage
+      - run: cd client && npm ci
+      - run: cd client && npm test -- --ci --coverage
 ```
 
 ---
@@ -753,7 +778,7 @@ const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:8000';
 |---|---|
 | `README.md` trống | Dùng tài liệu này và `AGENT.md` thay thế |
 | CI không hoạt động | `.github/workflows/ci.yml` trỏ tới `api-gateway/` — thư mục không tồn tại. Xem §8.1 để biết cách sửa |
-| Client chưa runnable | `src/` chỉ có logic, services, và tests. Chưa có `app.json`, `metro.config.js` hay RN project shell — không thể build/chạy trên simulator/device hiện tại (xem §8.2) |
+| Client cần Xcode | RN app shell đã setup trong `client/`. Cần cài Xcode từ App Store → `cd client/ios && pod install` → `cd client && npx react-native run-ios` |
 | `FIREBASE_CREDENTIALS_JSON` | Bắt buộc cho backend production. Để dev local, có thể dùng Application Default Credentials (`gcloud auth application-default login`) |
 | Database URL format | Backend dùng `postgresql+asyncpg://` cho runtime, nhưng Alembic migrations dùng sync driver (psycopg2) — `env.py` tự chuyển đổi |
 | SQLite trong tests | Unit tests dùng SQLite in-memory (không cần Postgres). Integration tests mới cần Postgres thực |
