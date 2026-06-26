@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Dokat Demo",
+    "slug": "dokat-demo",
+    "version": "1.0.0",
+    "platforms": ["web"],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
