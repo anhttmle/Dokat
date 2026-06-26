@@ -24,23 +24,36 @@ Việt Nam.
 
 ```
 .
-├── src/              # React Native client (TypeScript)
+├── client/           # React Native mobile app (TypeScript)
 ├── backend/          # FastAPI Python backend
 ├── specs/            # Spec-Driven Development docs (PRD + F01–F11)
-├── __mocks__/        # Jest mocks (Firebase, AsyncStorage)
+├── demo/             # Expo web demo (standalone, không phụ thuộc client/)
 ├── .cursor/rules/    # Coding rules (SDD + Karpathy guidelines)
 └── .github/workflows/ # CI
 ```
 
-### Client (`src/`)
+### Client (`client/`)
 
 ```
-src/
-├── components/   # UI components (auth, camera, profile, ...)
-├── screens/      # Màn hình (AddFriend, FriendList, QRScanner, Profile, ...)
-├── services/     # AuthService, ProfileService, SocialService, ai/PetAIService
-├── stores/       # Zustand stores (useAuthStore, useProfileStore, ...)
-└── __tests__/    # Test mirror theo domain (auth, profile, social)
+client/
+├── App.tsx         # Root component (Firebase init + Bottom Tab Navigation)
+├── index.js        # Entry point — AppRegistry.registerComponent('Dokat')
+├── ios/            # iOS native shell
+│   ├── Dokat/
+│   │   └── GoogleService-Info.plist  (gitignore'd — tự đặt)
+│   ├── Dokat.xcodeproj               Bundle ID: com.carbonix.dokat
+│   └── Podfile                       Firebase pods
+├── android/        # Android native shell
+│   └── app/
+│       └── google-services.json  (gitignore'd — tự đặt)
+├── src/
+│   ├── components/   # UI components (auth, camera, profile, ...)
+│   ├── screens/      # Màn hình (AddFriend, FriendList, QRScanner, Profile, ...)
+│   ├── services/     # AuthService, ProfileService, SocialService, ai/PetAIService
+│   ├── stores/       # Zustand stores (useAuthStore, useProfileStore, ...)
+│   └── __tests__/    # Test mirror theo domain (auth, profile, social)
+├── __mocks__/        # Jest mocks (Firebase, AsyncStorage)
+└── package.json
 ```
 
 ### Backend (`backend/`)
@@ -109,11 +122,26 @@ make test-integration # chạy tests/integration/
 make lint             # ruff check + black --check
 ```
 
-### Client (root)
+### Client (`client/`)
 
 ```bash
+cd client
 npm test           # chạy Jest
 npm run test:list  # liệt kê các test files
+```
+
+### iOS (cần Xcode từ App Store)
+
+```bash
+cd client/ios && pod install && cd ../..
+cd client && npx react-native run-ios
+```
+
+### Demo web (Expo — không cần Xcode)
+
+```bash
+cd demo && npx expo start --web
+# mở http://localhost:8081
 ```
 
 ---
@@ -154,6 +182,10 @@ npm run test:list  # liệt kê các test files
 - CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) đang trỏ tới
   thư mục `api-gateway/` — không tồn tại. Backend thực tế ở `backend/`,
   nên CI hiện không chạy cho code hiện có.
+- iOS build cần Xcode (chưa cài trên máy hiện tại) — `pod install` sẽ thất
+  bại cho đến khi Xcode được cài từ App Store.
+- `client/android/app/google-services.json` chưa có — cần lấy từ Firebase
+  Console (project `dokat-67ae7`) và đặt thủ công.
 
 ---
 
