@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from app.middleware.auth import FirebaseAuthMiddleware
@@ -23,7 +24,17 @@ app = FastAPI(
     swagger_ui_parameters={"persistAuthorization": True},
 )
 
+# Middleware execution order is LIFO: last-added runs first.
+# FirebaseAuthMiddleware is added first so CORSMiddleware (added last)
+# handles OPTIONS preflight before auth checks run.
 app.add_middleware(FirebaseAuthMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(pets_router)

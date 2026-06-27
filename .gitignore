@@ -46,9 +46,9 @@ htmlcov/
 *.log
 
 # =============================================================================
-# Node / React Native (client/)
+# Node / React Native (client-rn/)
 # =============================================================================
-client/node_modules/
+client-rn/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -57,12 +57,12 @@ yarn-error.log*
 .pnp.*
 
 # React Native build artifacts
-client/ios/build/
-client/ios/Pods/
-client/ios/Podfile.lock
-client/android/build/
-client/android/.gradle/
-client/android/app/build/
+client-rn/ios/build/
+client-rn/ios/Pods/
+client-rn/ios/Podfile.lock
+client-rn/android/build/
+client-rn/android/.gradle/
+client-rn/android/app/build/
 *.jks
 *.p8
 *.p12
@@ -73,8 +73,38 @@ web-build/
 
 # Expo
 .expo/
-dist/
 expo-env.d.ts
+
+# =============================================================================
+# Flutter (client/)
+# =============================================================================
+# Build outputs
+client/build/
+client/.dart_tool/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+
+# Generated files
+client/**/*.g.dart
+client/**/*.freezed.dart
+
+# Android
+client/android/.gradle/
+client/android/app/build/
+client/android/local.properties
+
+# iOS
+client/ios/Pods/
+client/ios/Podfile.lock
+client/ios/.symlinks/
+client/ios/Flutter/Flutter.framework
+client/ios/Flutter/Flutter.podspec
+
+# macOS / Windows / Linux (not targeted)
+client/macos/
+client/windows/
+client/linux/
+client/web/
 
 # =============================================================================
 # demo/ (Expo web)
@@ -90,8 +120,13 @@ demo/web-build/
 *.env
 *.env.*
 !*.env.example
-client/ios/Dokat/GoogleService-Info.plist
+# React Native Firebase config (client-rn/)
+client-rn/ios/Dokat/GoogleService-Info.plist
+client-rn/android/app/google-services.json
+
+# Flutter Firebase config (client/)
 client/android/app/google-services.json
+client/ios/Runner/GoogleService-Info.plist
 firebase-adminsdk*.json
 serviceAccountKey*.json
 

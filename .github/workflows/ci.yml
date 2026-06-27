@@ -3,18 +3,24 @@ name: CI
 on:
   push:
     paths:
-      - "api-gateway/**"
+      - "backend/**"
+      - "client/**"
   pull_request:
     paths:
-      - "api-gateway/**"
-
-defaults:
-  run:
-    working-directory: api-gateway
+      - "backend/**"
+      - "client/**"
 
 jobs:
-  lint-and-test:
+  # -----------------------------------------------------------------------
+  # Backend — FastAPI (Python)
+  # -----------------------------------------------------------------------
+  backend:
+    name: Backend lint & test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +29,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -r requirements.txt
 
       - name: Ruff check
         run: ruff check .
@@ -31,13 +37,44 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
-      - name: Pytest with coverage
-        run: pytest tests/ -v --cov=app --cov-fail-under=80
+      - name: Pytest (unit tests)
+        run: pytest tests/ -v --ignore=tests/integration
 
-  docker-build:
+  # -----------------------------------------------------------------------
+  # Flutter client
+  # -----------------------------------------------------------------------
+  flutter:
+    name: Flutter analyze & test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Docker build smoke test
-        run: bash tests/smoke/test_docker_build.sh
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.x"
+          channel: "stable"
+          cache: true
+
+      - name: Get Flutter packages
+        working-directory: client
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: client
+        run: flutter analyze
+
+      - name: Flutter test
+        working-directory: client
+        run: flutter test --coverage
+
+      - name: Check coverage threshold
+        working-directory: client
+        run: |
+          total=$(lcov --summary coverage/lcov.info 2>&1 | \
+            grep -oP '\d+\.\d+(?=%)' | head -1)
+          echo "Coverage: ${total}%"
+          if (( $(echo "$total < 80" | bc -l) )); then
+            echo "Coverage ${total}% is below 80%"
+            exit 1
+          fi

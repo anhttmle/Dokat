@@ -12,11 +12,13 @@ gửi ảnh thú cưng đến bạn bè theo thời gian thực — tương tự
 chỉ tập trung vào pet content (không có ảnh người). MVP nhắm thị trường
 Việt Nam.
 
-- **Platform:** React Native (iOS + Android)
+- **Platform:** Flutter (iOS + Android)
 - **Backend:** FastAPI (Python) + PostgreSQL + Firebase Auth + S3 +
   CloudFront
 - **Tài liệu nguồn:** [`specs/PRD.md`](specs/PRD.md) là source of truth cho
   yêu cầu sản phẩm.
+- **Migration spec:** [`specs/flutter-migration/`](specs/flutter-migration/)
+  cho quyết định kiến trúc Flutter.
 
 ---
 
@@ -24,35 +26,41 @@ Việt Nam.
 
 ```
 .
-├── client/           # React Native mobile app (TypeScript)
+├── client/           # Flutter mobile app (Dart) — platform mới
+├── client-rn/        # React Native cũ (TypeScript) — reference only
 ├── backend/          # FastAPI Python backend
-├── specs/            # Spec-Driven Development docs (PRD + F01–F11)
+├── specs/            # Spec-Driven Development docs (PRD + F01–F11 + flutter-migration)
 ├── demo/             # Expo web demo (standalone, không phụ thuộc client/)
 ├── .cursor/rules/    # Coding rules (SDD + Karpathy guidelines)
 └── .github/workflows/ # CI
 ```
 
-### Client (`client/`)
+### Client Flutter (`client/`)
 
 ```
 client/
-├── App.tsx         # Root component (Firebase init + Bottom Tab Navigation)
-├── index.js        # Entry point — AppRegistry.registerComponent('Dokat')
-├── ios/            # iOS native shell
-│   ├── Dokat/
-│   │   └── GoogleService-Info.plist  (gitignore'd — tự đặt)
-│   ├── Dokat.xcodeproj               Bundle ID: com.carbonix.dokat
-│   └── Podfile                       Firebase pods
-├── android/        # Android native shell
+├── pubspec.yaml      # Flutter dependencies
+├── lib/
+│   ├── main.dart     # Entry point (Firebase.initializeApp + runApp)
+│   ├── app.dart      # DokatApp widget (ProviderScope + go_router)
+│   ├── core/         # api_client.dart, constants.dart, firebase_options.dart
+│   ├── features/     # F01–F11, mỗi feature có data/domain/presentation/
+│   └── shared/       # Shared widgets + utils
+├── test/             # Flutter tests (mirror lib/)
+├── android/          # Android native shell
 │   └── app/
 │       └── google-services.json  (gitignore'd — tự đặt)
-├── src/
-│   ├── components/   # UI components (auth, camera, profile, ...)
-│   ├── screens/      # Màn hình (AddFriend, FriendList, QRScanner, Profile, ...)
-│   ├── services/     # AuthService, ProfileService, SocialService, ai/PetAIService
-│   ├── stores/       # Zustand stores (useAuthStore, useProfileStore, ...)
-│   └── __tests__/    # Test mirror theo domain (auth, profile, social)
-├── __mocks__/        # Jest mocks (Firebase, AsyncStorage)
+└── ios/              # iOS native shell
+    └── Runner/
+        └── GoogleService-Info.plist  (gitignore'd — tự đặt)
+```
+
+### Client RN (legacy, `client-rn/`)
+
+```
+client-rn/
+├── App.tsx         # Root component RN cũ (reference only)
+├── src/            # Services, screens, stores, tests gốc
 └── package.json
 ```
 
@@ -78,15 +86,15 @@ backend/
 
 | Layer    | Công nghệ |
 |----------|-----------|
-| Client   | React Native 0.76, React 18.3, TypeScript 5.5, Zustand 5, React Navigation 7 |
-| Auth     | Firebase Auth (Anonymous + OAuth Apple/Google/Facebook) |
+| Client   | Flutter 3.22+, Dart 3.4+, Riverpod 2, go_router 14, Dio 5 |
+| Auth     | Firebase Auth (Anonymous + OAuth Apple/Google/Facebook) via FlutterFire |
 | Backend  | FastAPI, Uvicorn, SQLAlchemy (async), Alembic, Pydantic Settings |
 | Database | PostgreSQL (asyncpg) |
 | Cache    | Redis (QR OTP, TTL 5 phút) |
 | Storage  | AWS S3 + CloudFront CDN |
-| Push     | Firebase Cloud Messaging (FCM) + APNs |
-| AI       | On-device model (TFLite / CoreML) — client-side, không gọi server |
-| Test     | Jest + Testing Library (client); pytest, httpx, moto, fakeredis (backend) |
+| Push     | Firebase Cloud Messaging (FCM) + APNs (firebase_messaging) |
+| AI       | On-device model (tflite_flutter) — client-side, không gọi server |
+| Test     | flutter_test + mockito (client); pytest, httpx, moto, fakeredis (backend) |
 
 ---
 
@@ -122,19 +130,40 @@ make test-integration # chạy tests/integration/
 make lint             # ruff check + black --check
 ```
 
-### Client (`client/`)
+### Client Flutter (`client/`)
 
 ```bash
-cd client
-npm test           # chạy Jest
-npm run test:list  # liệt kê các test files
+# Chạy tests
+cd client && flutter test
+
+# Chạy Android (cần Android Studio + emulator)
+cd client && flutter run
+
+# Chạy iOS (cần Xcode từ App Store)
+cd client && flutter run -d ios
+
+# Lint & analyze
+cd client && flutter analyze
+
+# Build APK debug
+cd client && flutter build apk --debug
 ```
 
-### iOS (cần Xcode từ App Store)
+### Setup Firebase cho Flutter (lần đầu)
 
 ```bash
-cd client/ios && pod install && cd ../..
-cd client && npx react-native run-ios
+# Cài FlutterFire CLI
+dart pub global activate flutterfire_cli
+
+# Configure (cần Firebase project dokat-67ae7)
+cd client && flutterfire configure --project=dokat-67ae7
+```
+
+### Client RN cũ (reference, `client-rn/`)
+
+```bash
+cd client-rn
+npm test           # chạy Jest (reference)
 ```
 
 ### Demo web (Expo — không cần Xcode)
@@ -150,17 +179,17 @@ cd demo && npx expo start --web
 
 | ID  | Feature                          | Priority | Trạng thái |
 |-----|----------------------------------|----------|------------|
-| F01 | Authentication & Guest Mode      | P0 | Implemented (client + backend) |
-| F02 | Owner Profile & Pet Profile      | P0 | Implemented (client + backend) |
-| F03 | Social Graph — Kết bạn qua QR    | P0 | Implemented (client + backend) |
-| F04 | Capture Ảnh + AI Validation      | P0 | Chỉ có requirements |
-| F05 | Gửi Ảnh (Multi-Recipient)        | P0 | Chỉ có requirements |
-| F06 | Feed & App View                  | P0 | Chỉ có requirements |
-| F07 | Seen By                          | P1 | Chỉ có requirements |
-| F08 | History / Timeline (1 ngày)      | P1 | Chỉ có requirements |
-| F09 | Notification System              | P1 | Chỉ có requirements |
-| F10 | Settings                         | P1 | Chỉ có requirements |
-| F11 | Location & Time Metadata         | P2 | Chỉ có requirements |
+| F01 | Authentication & Guest Mode      | P0 | Implemented (Flutter + backend) |
+| F02 | Owner Profile & Pet Profile      | P0 | Implemented (Flutter + backend) |
+| F03 | Social Graph — Kết bạn qua QR    | P0 | Implemented (Flutter + backend) |
+| F04 | Capture Ảnh + AI Validation      | P0 | Implemented (Flutter) |
+| F05 | Gửi Ảnh (Multi-Recipient)        | P0 | Implemented (Flutter) |
+| F06 | Feed & App View                  | P0 | Implemented (Flutter) |
+| F07 | Seen By                          | P1 | Implemented (Flutter) |
+| F08 | History / Timeline (1 ngày)      | P1 | Implemented (Flutter) |
+| F09 | Notification System              | P1 | Implemented (Flutter) |
+| F10 | Settings                         | P1 | Implemented (Flutter) |
+| F11 | Location & Time Metadata         | P2 | Implemented (Flutter) |
 
 ---
 
@@ -179,13 +208,17 @@ cd demo && npx expo start --web
 ### Gap đã biết (cần lưu ý, không tự ý sửa nếu không được yêu cầu)
 
 - `README.md` ở root hiện trống.
-- CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) đang trỏ tới
-  thư mục `api-gateway/` — không tồn tại. Backend thực tế ở `backend/`,
-  nên CI hiện không chạy cho code hiện có.
-- iOS build cần Xcode (chưa cài trên máy hiện tại) — `pod install` sẽ thất
-  bại cho đến khi Xcode được cài từ App Store.
-- `client/android/app/google-services.json` chưa có — cần lấy từ Firebase
-  Console (project `dokat-67ae7`) và đặt thủ công.
+- CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) đã được cập
+  nhật cho Flutter. Backend CI vẫn cần fix path.
+- iOS build cần Xcode (macOS + App Store). `flutter run -d ios` sẽ thất bại
+  cho đến khi Xcode được cài.
+- `client/android/app/google-services.json` chưa có — chạy
+  `flutterfire configure` hoặc lấy thủ công từ Firebase Console
+  (project `dokat-67ae7`).
+- `client/ios/Runner/GoogleService-Info.plist` chưa có — tương tự trên.
+- Flutter SDK chưa cài — cần cài Flutter 3.22+ trước khi chạy bất kỳ
+  Flutter command nào.
+- `client-rn/` giữ nguyên làm reference; không cần maintain.
 
 ---
 
@@ -195,7 +228,9 @@ cd demo && npx expo start --web
   class/function chính mỗi file. Format bằng `black` + `isort`, lint bằng
   `ruff`, type-check bằng `mypy`. Import order: stdlib → third-party →
   local. Không hardcode secrets — dùng `.env` / pydantic settings.
-- **TypeScript (client):** theo style hiện có của codebase, test với Jest.
+- **Dart (client Flutter):** `dart format`, `flutter analyze` (lint rules
+  trong `analysis_options.yaml`). snake_case files, lowerCamelCase vars,
+  UpperCamelCase classes. Test với `flutter_test` + `mockito`.
 - **Nguyên tắc chung:** DRY, KISS, YAGNI, SOLID. Tránh nesting sâu
   (≤ 2–3 cấp). Đặt tên rõ ràng, docstring cho public API.
 - Chi tiết đầy đủ xem [`.cursor/rules/`](.cursor/rules/).

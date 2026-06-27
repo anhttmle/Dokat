@@ -30,19 +30,20 @@ pet content, không có ảnh người. MVP nhắm thị trường Việt Nam.
 
 | Layer | Công nghệ |
 |---|---|
-| Mobile client | React Native 0.76 + TypeScript 5.5 |
-| State management | Zustand 5 |
-| Navigation | React Navigation 7 |
-| Auth | Firebase Auth (Anonymous + OAuth Google/Apple/Facebook) |
+| Mobile client | Flutter 3.22+ (Dart 3.4+) |
+| State management | Riverpod 2 (AsyncNotifier) |
+| Navigation | go_router 14 |
+| HTTP client | Dio 5 |
+| Auth | Firebase Auth (Anonymous + OAuth Google/Apple/Facebook) via FlutterFire |
 | Backend | FastAPI (Python) + Uvicorn |
 | Database | PostgreSQL (SQLAlchemy async + asyncpg) |
 | Migrations | Alembic |
 | Cache | Redis (QR OTP) |
 | Storage | AWS S3 + CloudFront CDN |
-| Push notifications | Firebase Cloud Messaging (FCM) + APScheduler |
-| AI validation | On-device (TFLite / CoreML) — không gọi server |
+| Push notifications | Firebase Cloud Messaging (FCM) via firebase_messaging |
+| AI validation | On-device (tflite_flutter) — không gọi server |
 | Test (backend) | pytest + httpx + moto + fakeredis |
-| Test (client) | Jest 29 + @testing-library/react-native |
+| Test (client) | flutter_test + mockito |
 
 ---
 
@@ -109,11 +110,13 @@ flowchart TD
 
 ### Prerequisites
 
-- Python 3.11+ (dự án dùng 3.14 locally)
-- Node.js 20+ và npm
+- Python 3.11+
+- **Flutter 3.22+** — cài theo [flutter.dev/install](https://flutter.dev/docs/get-started/install)
+- Android Studio (cho Android emulator) hoặc Xcode (cho iOS)
 - PostgreSQL 14+
 - Redis 7+
 - Firebase project (để lấy credentials)
+- Dart CLI (đi kèm Flutter SDK)
 
 ### Bước 1 — Clone và cài đặt
 
@@ -126,8 +129,10 @@ cd backend
 make install        # tạo .venv + pip install -r requirements.txt
 cd ..
 
-# Client
-npm install
+# Flutter client
+cd client
+flutter pub get
+cd ..
 ```
 
 ### Bước 2 — Cấu hình biến môi trường backend
@@ -234,42 +239,51 @@ backend/
 **Nguyên tắc:** router không chứa business logic. Mọi xử lý đặt trong
 `services/`. Router chỉ: nhận request → gọi service → trả response / map lỗi.
 
-### Client — Cấu trúc `client/`
+### Client Flutter — Cấu trúc `client/`
 
 ```
 client/
-├── App.tsx              # Root component (Firebase init + Navigation)
-├── index.js             # Entry point (AppRegistry)
-├── package.json
-├── ios/                 # iOS native shell (Xcode project)
-│   ├── Dokat/
-│   │   └── GoogleService-Info.plist  (gitignore'd — tự đặt)
-│   ├── Dokat.xcodeproj
-│   └── Podfile
+├── pubspec.yaml         # Dependencies (riverpod, dio, go_router, firebase_*, ...)
+├── analysis_options.yaml
+├── lib/
+│   ├── main.dart        # Entry: Firebase.initializeApp + ProviderScope + runApp
+│   ├── app.dart         # DokatApp (MaterialApp.router + go_router config)
+│   ├── core/
+│   │   ├── api_client.dart       # Dio + Bearer token interceptor
+│   │   ├── constants.dart        # BASE_URL, hard limits
+│   │   ├── firebase_options.dart # FlutterFire CLI generated (tự đặt)
+│   │   └── providers.dart        # dioProvider, firebaseAuthProvider
+│   ├── features/        # Mỗi feature có data/domain/presentation/
+│   │   ├── auth/        # F01: AuthService, AuthNotifier, AuthGuard, ForceLinkScreen
+│   │   ├── profile/     # F02: ProfileService, PetService, ProfileScreen
+│   │   ├── social/      # F03: SocialService, FriendListScreen, QRScannerScreen
+│   │   ├── capture/     # F04: CaptureService, PetValidationService, CameraScreen
+│   │   ├── send/        # F05: SendService, RecipientSelectorScreen
+│   │   ├── feed/        # F06: FeedService, FeedScreen, FeedItem
+│   │   ├── seen/        # F07: SeenService, SeenByList
+│   │   ├── history/     # F08: HistoryService, HistoryScreen
+│   │   ├── notifications/ # F09: NotificationService, NotificationPreferenceSection
+│   │   ├── settings/    # F10: SettingsService, SettingsScreen, AccountLinkRow
+│   │   └── location/    # F11: LocationService, LocationPayload
+│   └── shared/
+│       ├── widgets/     # LoadingOverlay
+│       └── utils/       # relativeTime()
+├── test/                # Flutter tests (mirror lib/features/)
 ├── android/             # Android native shell
 │   └── app/
-│       └── google-services.json  (gitignore'd — tự đặt)
-└── src/
-├── components/          # UI components tái sử dụng
-│   ├── auth/            # AuthPromptModal, ...
-│   ├── camera/          # CameraPreview, ...
-│   ├── profile/         # PetProfileCard, ...
-│   └── *.tsx            # FeedItem, SeenByList, NotificationPreferenceSection,...
-├── screens/             # Màn hình (AddFriend, FriendList, QRScanner, ...)
-├── services/            # HTTP clients → backend API
-│   ├── AuthService.ts   # Firebase Auth + getIdToken()
-│   ├── SocialService.ts # /friends endpoints
-│   ├── FeedService.ts   # /feed
-│   ├── PostService.ts   # /posts
-│   └── ...
-├── stores/              # Zustand stores (useAuthStore, useProfileStore, ...)
-└── __tests__/           # Jest tests (mirror theo domain)
-    ├── auth/
-    ├── profile/
-    ├── social/
-    ├── feed/
-    ├── notifications/
-    └── ...
+│       └── google-services.json  (gitignore'd — chạy flutterfire configure)
+└── ios/                 # iOS native shell
+    └── Runner/
+        └── GoogleService-Info.plist  (gitignore'd — chạy flutterfire configure)
+```
+
+### Client RN legacy — `client-rn/` (reference only)
+
+```
+client-rn/
+├── App.tsx              # Root component RN cũ
+├── src/                 # Services, screens, stores, tests gốc (TypeScript)
+└── package.json
 ```
 
 ### Specs — Một feature, một thư mục
@@ -429,8 +443,9 @@ flowchart TD
 
 **TypeScript (client):**
 
-- Follow style hiện có của codebase
-- Test với Jest + @testing-library/react-native
+- `dart format` — auto-format Dart code
+- `flutter analyze` — static analysis (rules trong `analysis_options.yaml`)
+- Test với `flutter_test` + `mockito`
 
 **Nguyên tắc chung:** DRY, KISS, YAGNI, SOLID. Tránh nesting > 3 cấp.
 Đặt tên mô tả rõ ý nghĩa.
@@ -484,28 +499,54 @@ def client(db_session, mock_verify_id_token) -> TestClient:
     app.dependency_overrides.clear()
 ```
 
-### Client
+### Client Flutter
 
 ```bash
-# Từ thư mục client/
 cd client
-npm test                 # chạy toàn bộ Jest tests
-npm run test:list        # liệt kê các test files
+
+# Chạy toàn bộ unit + widget tests
+flutter test
+
+# Chạy với coverage report
+flutter test --coverage
+
+# Analyze (lint)
+flutter analyze
 ```
 
-Test files nằm trong `client/src/__tests__/<domain>/`. Số lượng hiện tại: 42 test
-suites, 170 tests.
+Test files nằm trong `client/test/features/<feature>/`, mirror `lib/features/`.
 
-**Mock pattern chuẩn cho service tests:**
+**Mock pattern chuẩn cho service tests (mockito):**
 
-```typescript
-jest.mock('../../services/AuthService', () => ({
-  __esModule: true,
-  default: { getIdToken: jest.fn().mockResolvedValue('mock-token') },
-}));
+```dart
+@GenerateMocks([Dio])
+void main() {
+  late MockDio mockDio;
+  late ProfileService service;
 
-const mockFetch = jest.fn();
-(globalThis as any).fetch = mockFetch;
+  setUp(() {
+    mockDio = MockDio();
+    service = ProfileService(dio: mockDio);
+  });
+
+  test('getProfile parses response', () async {
+    when(mockDio.get<Map<String, dynamic>>('/profile/me'))
+        .thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: '/profile/me'),
+              data: {'user_id': 'u1', 'display_name': 'Test'},
+              statusCode: 200,
+            ));
+
+    final profile = await service.getProfile();
+    expect(profile.displayName, 'Test');
+  });
+}
+```
+
+Sau khi thêm `@GenerateMocks`, chạy code generation:
+
+```bash
+cd client && dart run build_runner build
 ```
 
 ---
@@ -636,139 +677,78 @@ jobs:
 
 ---
 
-### 8.2 Frontend — React Native
+### 8.2 Flutter Client
 
-#### Trạng thái hiện tại ✅
+#### Setup Firebase (lần đầu sau clone)
 
-React Native app shell đã được khởi tạo và cấu hình xong:
-
-```
-ME/
-├── client/                        ← Toàn bộ React Native mobile app
-│   ├── App.tsx                    ← Root component (Firebase init + Navigation)
-│   ├── index.js                   ← Entry point (AppRegistry)
-│   ├── ios/
-│   │   ├── Dokat/
-│   │   │   ├── GoogleService-Info.plist  ← Firebase iOS config (gitignore'd)
-│   │   │   ├── AppDelegate.swift
-│   │   │   └── Info.plist         ← Bundle ID: com.carbonix.dokat
-│   │   ├── Dokat.xcodeproj
-│   │   └── Podfile                ← Firebase pods đã được thêm
-│   └── android/
-│       └── app/
-│           └── google-services.json  ← cần thêm thủ công (gitignore'd)
-├── backend/                       ← FastAPI backend
-├── specs/                         ← SDD specs (shared)
-└── demo/                          ← Expo web demo
-```
-
-#### Cấu hình Firebase Native
-
-| File | Lấy từ | Đặt tại | Trạng thái |
-|---|---|---|---|
-| `GoogleService-Info.plist` | Firebase Console → Project `dokat-67ae7` → iOS | `client/ios/Dokat/` | ✅ Đã có |
-| `google-services.json` | Firebase Console → Project `dokat-67ae7` → Android | `client/android/app/` | ⏳ Cần thêm |
-
-Cả hai file đều trong `.gitignore` — mỗi dev phải tự đặt sau khi clone.
-
-#### Build iOS
-
-**Yêu cầu:** macOS + **Xcode 15+** (tải từ App Store) + CocoaPods.
+Chạy FlutterFire CLI để tạo `lib/core/firebase_options.dart`:
 
 ```bash
-# Bước 1 — Cài CocoaPods (một lần)
-brew install cocoapods
+# Cài FlutterFire CLI (một lần)
+dart pub global activate flutterfire_cli
 
-# Bước 2 — Install native pods
-cd client/ios && pod install && cd ../..
-
-# Bước 3 — Chạy trên simulator
-cd client && npx react-native run-ios
-# hoặc chỉ định device cụ thể:
-npx react-native run-ios --simulator "iPhone 16 Pro"
-
-# Production build — Xcode → Product → Archive
-# hoặc dùng Fastlane (khuyến nghị cho CI)
+# Configure (cần Firebase project dokat-67ae7)
+cd client
+flutterfire configure --project=dokat-67ae7
 ```
 
-> **Lưu ý:** `pod install` yêu cầu Xcode đầy đủ (không chỉ Command Line Tools).
-> Tải Xcode từ App Store (~10GB) trước khi chạy lệnh này.
+Lệnh này tự tạo `android/app/google-services.json` và
+`ios/Runner/GoogleService-Info.plist` — cả hai đều trong `.gitignore`.
+
+| File | Đặt tại | Cách lấy |
+|---|---|---|
+| `google-services.json` | `client/android/app/` | `flutterfire configure` hoặc Firebase Console |
+| `GoogleService-Info.plist` | `client/ios/Runner/` | `flutterfire configure` hoặc Firebase Console |
 
 #### Build Android
 
-Yêu cầu: Android Studio + JDK 17.
-
 ```bash
-# Dev build (chạy trên emulator hoặc thiết bị thật)
-cd client && npx react-native run-android
+# Dev — chạy trên emulator hoặc thiết bị
+cd client && flutter run
 
-# Release APK (debug signing)
-cd client/android && ./gradlew assembleRelease
+# APK debug
+cd client && flutter build apk --debug
 
-# Release AAB (để upload Google Play)
-cd client/android && ./gradlew bundleRelease
+# APK release
+cd client && flutter build apk --release
+
+# AAB (để upload Google Play)
+cd client && flutter build appbundle
 ```
 
-> **Release signing:** cần `client/android/app/keystore.jks` và cấu hình
-> `client/android/gradle.properties`. Hỏi team trưởng để lấy keystore.
+#### Build iOS
+
+**Yêu cầu:** macOS + Xcode 15+ (App Store).
+
+```bash
+# Chạy trên iOS simulator
+cd client && flutter run -d ios
+
+# Release build (IPA)
+cd client && flutter build ipa
+```
 
 #### Cấu hình `BASE_URL` cho từng môi trường
 
-Các service trong `client/src/services/` hiện hardcode:
-
-```typescript
-const BASE_URL = 'http://localhost:8000';
-```
-
-Trước khi build production, thay bằng URL backend thực. Cách chuẩn là dùng
-biến môi trường qua `react-native-config` hoặc build flavors (Android) /
-schemes (iOS):
+`BASE_URL` đọc từ `--dart-define` (mặc định `http://localhost:8000`):
 
 ```bash
-npm install react-native-config
+# Dev — dùng default localhost
+flutter run
+
+# Staging
+flutter run --dart-define=BASE_URL=https://api-staging.dokat.app
+
+# Production build
+flutter build apk --dart-define=BASE_URL=https://api.dokat.app
 ```
 
-Sau đó tạo `.env.production`:
+#### CI/CD Flutter
 
-```dotenv
-API_BASE_URL=https://api.dokat.app
-```
-
-Và dùng trong service:
-
-```typescript
-import Config from 'react-native-config';
-const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:8000';
-```
-
-#### CI/CD frontend (cần thêm vào ci.yml)
-
-```yaml
-  test-client:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - run: cd client && npm ci
-      - run: cd client && npm test -- --ci --coverage
-```
-
----
-
-### 8.3 Tóm tắt trạng thái build hiện tại
-
-| Thành phần | Dev local | Production build | Ghi chú |
-|---|---|---|---|
-| Backend API | `make run` | Gunicorn (cần thêm) | Không cần sửa code |
-| Backend Docker | — | Dockerfile chưa tồn tại | Cần tạo |
-| Backend CI | — | CI trỏ sai path | Cần sửa `ci.yml` |
-| Backend migrations | `make migrate` | `alembic upgrade head` | Chạy trước khi restart |
-| Client (React Native) | — | Chưa có app shell | Cần khởi tạo RN project |
-| Client iOS | — | Xcode Archive | Cần app shell + pod install |
-| Client Android | — | `./gradlew bundleRelease` | Cần app shell + keystore |
-| Client CI | — | Chưa có | Cần thêm job vào `ci.yml` |
+`.github/workflows/ci.yml` đã cập nhật với job `flutter` chạy:
+1. `flutter pub get`
+2. `flutter analyze`
+3. `flutter test --coverage`
 
 ---
 
@@ -777,12 +757,13 @@ const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:8000';
 | Vấn đề | Chi tiết |
 |---|---|
 | `README.md` trống | Dùng tài liệu này và `AGENT.md` thay thế |
-| CI không hoạt động | `.github/workflows/ci.yml` trỏ tới `api-gateway/` — thư mục không tồn tại. Xem §8.1 để biết cách sửa |
-| Client cần Xcode | RN app shell đã setup trong `client/`. Cần cài Xcode từ App Store → `cd client/ios && pod install` → `cd client && npx react-native run-ios` |
+| Flutter SDK chưa cài | Cài Flutter 3.22+ từ flutter.dev trước khi chạy bất kỳ `flutter` command nào |
+| Firebase config chưa có | Chạy `flutterfire configure --project=dokat-67ae7` sau khi clone |
+| iOS build cần Xcode | macOS + Xcode 15+ từ App Store. `flutter run -d ios` sẽ fail đến khi Xcode cài xong |
 | `FIREBASE_CREDENTIALS_JSON` | Bắt buộc cho backend production. Để dev local, có thể dùng Application Default Credentials (`gcloud auth application-default login`) |
 | Database URL format | Backend dùng `postgresql+asyncpg://` cho runtime, nhưng Alembic migrations dùng sync driver (psycopg2) — `env.py` tự chuyển đổi |
 | SQLite trong tests | Unit tests dùng SQLite in-memory (không cần Postgres). Integration tests mới cần Postgres thực |
-| AGENT.md có thể lỗi thời | Bảng tiến độ trong `AGENT.md` không phản ánh trạng thái thực — nhiều feature (F05–F10) đã implement backend nhưng AGENT.md vẫn ghi "Chỉ có requirements" |
+| `client-rn/` | React Native cũ — giữ làm reference, không cần maintain. `node_modules/` bị gitignore |
 
 ---
 

@@ -1,0 +1,63 @@
+name: dokat
+description: Dokat — mạng xã hội ảnh thú cưng (Locket-style), MVP thị trường Việt Nam.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # HTTP
+  dio: ^5.4.3+1
+
+  # Firebase
+  firebase_core: ^3.3.0
+  firebase_auth: ^5.1.4
+  firebase_messaging: ^15.1.0
+
+  # Storage
+  shared_preferences: ^2.3.1
+  flutter_secure_storage: ^9.2.2
+
+  # Cross-platform file abstraction (web + mobile)
+  cross_file: ^0.3.4+2
+
+  # Camera & media
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+
+  # QR
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.2
+
+  # AI on-device
+  tflite_flutter: ^0.12.1
+
+  # UI
+  flutter_svg: ^2.0.10+1
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.11
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/
+    - assets/images/
