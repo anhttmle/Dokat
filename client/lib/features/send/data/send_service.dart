@@ -8,32 +8,44 @@ class SendService {
 
   /// POST /posts/upload-url
   ///
-  /// Returns a presigned S3 URL for uploading the image.
-  Future<String> getUploadUrl(String contentType) async {
+  /// Returns a record with the presigned S3 upload URL, the S3 object
+  /// key, and the public CDN URL — all needed for the subsequent
+  /// POST /posts call.
+  Future<({String uploadUrl, String s3Key, String cdnUrl})>
+      getUploadUrl(String contentType) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/posts/upload-url',
       data: {'content_type': contentType},
     );
-    return response.data!['upload_url'] as String;
+    final data = response.data!;
+    return (
+      uploadUrl: data['upload_url'] as String,
+      s3Key: data['object_key'] as String,
+      cdnUrl: data['cdn_url'] as String,
+    );
   }
 
   /// POST /posts
   ///
-  /// Creates a post record linking [imageUrl] to [recipientIds].
-  /// Optionally includes [petId] and [locationPayload].
+  /// Creates a post record linking [s3Key] + [cdnUrl] to [recipientIds].
+  /// Optionally includes [petId], [latitude], and [longitude].
   Future<void> sendPost({
-    required String imageUrl,
+    required String s3Key,
+    required String cdnUrl,
     required List<String> recipientIds,
     String? petId,
-    Map<String, dynamic>? locationPayload,
+    double? latitude,
+    double? longitude,
   }) async {
     await _dio.post<void>(
       '/posts',
       data: {
-        'image_url': imageUrl,
+        's3_key': s3Key,
+        'cdn_url': cdnUrl,
         'recipient_ids': recipientIds,
         if (petId != null) 'pet_id': petId,
-        if (locationPayload != null) 'location': locationPayload,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       },
     );
   }

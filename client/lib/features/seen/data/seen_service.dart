@@ -15,8 +15,15 @@ class SeenService {
   ///
   /// Returns a list of display names who have seen the post.
   Future<List<String>> getSeenBy(String postId) async {
-    final response =
-        await _dio.get<List<dynamic>>('/posts/$postId/seen-by');
-    return (response.data ?? []).cast<String>();
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/posts/$postId/seen-by',
+    );
+    final viewers =
+        (response.data?['viewers'] as List<dynamic>?) ?? [];
+    return viewers
+        .cast<Map<String, dynamic>>()
+        .map((v) => v['display_name'] as String? ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
   }
 }

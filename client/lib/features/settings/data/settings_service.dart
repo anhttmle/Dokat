@@ -17,7 +17,7 @@ class SettingsService {
   Future<void> blockUser(String targetUserId) async {
     await _dio.post<void>(
       '/users/block',
-      data: {'target_user_id': targetUserId},
+      data: {'user_id': targetUserId},
     );
   }
 
@@ -25,8 +25,14 @@ class SettingsService {
   ///
   /// Returns a list of blocked user IDs.
   Future<List<String>> getBlockList() async {
-    final response = await _dio.get<List<dynamic>>('/users/block');
-    return (response.data ?? []).cast<String>();
+    final response =
+        await _dio.get<Map<String, dynamic>>('/users/block');
+    final blocked =
+        (response.data?['blocked'] as List<dynamic>?) ?? [];
+    return blocked
+        .cast<Map<String, dynamic>>()
+        .map((item) => item['user_id'] as String)
+        .toList();
   }
 
   /// DELETE /users/block/:userId
@@ -41,7 +47,7 @@ class SettingsService {
   ) async {
     await _dio.post<void>(
       '/users/report',
-      data: {'target_user_id': targetUserId, 'reason': reason},
+      data: {'user_id': targetUserId, 'reason': reason},
     );
   }
 

@@ -107,6 +107,26 @@
 
 ---
 
+## DL-F03-14 — Flutter `SocialService`: QR dùng field `token`, không phải `otp`
+
+**Date:** 2026-06-27
+**Context:** Khi tích hợp client với backend thật, phát hiện Flutter
+`SocialService` dùng field `otp` trong cả hai chiều: `generateQrOtp()` đọc
+`response['otp']` và `scanQrOtp()` gửi `{'otp': otp}`. Backend schema
+`GenerateQRResponse` trả `token`/`deep_link`/`expires_at` và
+`ScanQRRequest` nhận field `token`. Không khớp → 422 validation error.
+**Decision:**
+- Đổi tên method: `generateQrOtp()` → `generateQrToken()` (đọc
+  `response['token']`).
+- Đổi tên method: `scanQrOtp(String otp)` → `scanQrToken(String token)`,
+  gửi `{'token': token}`.
+- Cập nhật `QRScannerScreen`, `AddFriendScreen`, và test file theo tên mới.
+**Consequence:** Contract client khớp 100% với backend schema F03. Việc
+đổi tên method (không chỉ field) giúp tránh nhầm lẫn trong tương lai —
+tên `token` là thuật ngữ chính xác của Redis OTP service.
+
+---
+
 ## DL-F03-10 — AddFriendScreen test dùng `jest.mock('react-native-qrcode-svg', ...)` inline thay vì file mock riêng
 
 **Date:** 2026-06-21

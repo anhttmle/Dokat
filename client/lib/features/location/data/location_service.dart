@@ -11,10 +11,12 @@ import '../domain/location_payload.dart';
 class LocationService {
   /// Returns a [LocationPayload] with the current coordinates,
   /// or null if location is unavailable.
-  Future<Map<String, dynamic>?> getCurrentPayload() async {
+  Future<LocationPayload?> getCurrentPayload() async {
     // Real implementation would use:
     //   final pos = await Geolocator.getCurrentPosition(...);
-    //   return LocationPayload(latitude: pos.latitude, ...).toJson();
+    //   return LocationPayload(
+    //     latitude: pos.latitude, longitude: pos.longitude,
+    //   );
     // Returning null here so features work before adding geolocator dep.
     return null;
   }

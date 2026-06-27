@@ -40,19 +40,23 @@ void main() {
     expect(friends.first.displayName, 'Bình');
   });
 
-  test('generateQrOtp returns otp string', () async {
+  test('generateQrToken returns token string', () async {
     when(mockDio.post<Map<String, dynamic>>('/friends/qr/generate'))
         .thenAnswer(
       (_) async => Response(
         requestOptions:
             RequestOptions(path: '/friends/qr/generate'),
-        data: {'otp': 'abc123'},
+        data: {
+          'token': 'abc123',
+          'deep_link': 'dokat://qr/abc123',
+          'expires_at': '2026-06-27T16:00:00Z',
+        },
         statusCode: 200,
       ),
     );
 
-    final otp = await service.generateQrOtp();
-    expect(otp, 'abc123');
+    final token = await service.generateQrToken();
+    expect(token, 'abc123');
   });
 
   test('removeFriend calls DELETE endpoint', () async {

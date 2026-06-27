@@ -161,6 +161,26 @@ friendship xử lý self-friend (F03).
 
 ---
 
+## DL-F10-13 — Flutter `SettingsService`: đổi `target_user_id` → `user_id`; parse block list từ `{blocked: [...]}`
+
+**Date:** 2026-06-27
+**Context:** Khi tích hợp client với backend thật, phát hiện 2 mismatch trong
+`SettingsService`:
+1. `blockUser()` và `reportUser()` gửi field `target_user_id`, nhưng backend
+   `BlockRequest`/`ReportRequest` khai báo field `user_id`. → 422 validation error.
+2. `getBlockList()` parse response như `List<String>` (user IDs), nhưng backend
+   `GET /users/block` trả `{blocked: [...BlockedUserItem], total: int}`.
+**Decision:**
+- `blockUser()`: gửi `{'user_id': targetUserId}`.
+- `reportUser()`: gửi `{'user_id': targetUserId, 'reason': reason}`.
+- `getBlockList()`: parse `response.data['blocked']` thành list, extract `user_id`
+  từ mỗi `BlockedUserItem`. Giữ return type `List<String>` để call site không đổi.
+**Consequence:** Block/report gọi đúng contract. Nếu sau này UI cần hiển thị
+`display_name`/`avatar_url` của người bị block, cần thay đổi return type
+`getBlockList()` thành `List<BlockedUserItem>` domain model.
+
+---
+
 ## DL-F10-12 — Test migration theo ORM metadata (không chạy Alembic trên SQLite)
 
 **Date:** 2026-06-22

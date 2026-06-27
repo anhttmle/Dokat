@@ -32,7 +32,7 @@ void main() {
       mockDio.post<void>(
         '/users/block',
         data: argThat(
-          containsPair('target_user_id', 'u2'),
+          containsPair('user_id', 'u2'),
           named: 'data',
         ),
       ),

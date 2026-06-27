@@ -10,21 +10,21 @@ class SocialService {
 
   /// POST /friends/qr/generate
   ///
-  /// Returns the OTP string to encode into a QR code.
-  Future<String> generateQrOtp() async {
+  /// Returns the token string to encode into a QR code.
+  Future<String> generateQrToken() async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/friends/qr/generate',
     );
-    return response.data!['otp'] as String;
+    return response.data!['token'] as String;
   }
 
   /// POST /friends/qr/scan
   ///
-  /// [otp] is the value decoded from the scanned QR code.
-  Future<void> scanQrOtp(String otp) async {
+  /// [token] is the value decoded from the scanned QR code.
+  Future<void> scanQrToken(String token) async {
     await _dio.post<void>(
       '/friends/qr/scan',
-      data: {'otp': otp},
+      data: {'token': token},
     );
   }
 

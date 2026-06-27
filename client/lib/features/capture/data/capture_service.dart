@@ -20,13 +20,9 @@ class CaptureService {
   final ImageCompressor _compressor;
 
   /// Compresses [imageFile] and uploads it to [uploadUrl] (S3 presigned).
-  ///
-  /// Returns the public CDN URL of the uploaded image.
-  Future<String> uploadImage(XFile imageFile, String uploadUrl) async {
+  Future<void> uploadImage(XFile imageFile, String uploadUrl) async {
     final bytes = await _compressor.compress(imageFile);
     await _uploadToS3(uploadUrl, bytes);
-    // Strip query params to get clean CDN URL.
-    return uploadUrl.split('?').first;
   }
 
   Future<void> _uploadToS3(String url, Uint8List bytes) async {

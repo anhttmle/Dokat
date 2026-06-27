@@ -19,21 +19,21 @@ void main() {
   });
 
   test('getFeed parses list of Post', () async {
-    when(mockDio.get<List<dynamic>>('/feed')).thenAnswer(
+    when(mockDio.get<dynamic>('/feed')).thenAnswer(
       (_) async => Response(
         requestOptions: RequestOptions(path: '/feed'),
-        data: [
+        data: {
+          'items': [
           {
             'post_id': 'p1',
-            'image_url': 'https://cdn.example.com/p1.jpg',
+            'cdn_url': 'https://cdn.example.com/p1.jpg',
             'sender_display_name': 'Anh',
             'sender_avatar_url': null,
             'pet_name': 'Mochi',
             'created_at': '2026-06-26T10:00:00Z',
-            'seen_by_count': 3,
-            'seen_by_me': false,
+            'seen': false,
           }
-        ],
+        ]},
         statusCode: 200,
       ),
     );

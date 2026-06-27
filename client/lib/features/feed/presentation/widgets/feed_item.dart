@@ -33,10 +33,7 @@ class _FeedItemState extends ConsumerState<FeedItem> {
         .markSeen(_post.postId);
     if (mounted) {
       setState(() {
-        _post = _post.copyWith(
-          seenByMe: true,
-          seenByCount: _post.seenByCount + 1,
-        );
+        _post = _post.copyWith(seenByMe: true);
       });
     }
   }
@@ -109,9 +106,13 @@ class _FeedItemState extends ConsumerState<FeedItem> {
                     ],
                   ),
                 ),
-                TextButton.icon(
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: Text('${_post.seenByCount}'),
+                IconButton(
+                  icon: Icon(
+                    _post.seenByMe
+                        ? Icons.visibility
+                        : Icons.visibility_outlined,
+                    size: 18,
+                  ),
                   onPressed: _showSeenBy,
                 ),
               ],

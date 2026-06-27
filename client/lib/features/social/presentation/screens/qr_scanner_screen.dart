@@ -21,13 +21,13 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     if (_scanned) return;
     final barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
-    final otp = barcodes.first.rawValue;
-    if (otp == null) return;
+    final token = barcodes.first.rawValue;
+    if (token == null) return;
 
     setState(() => _scanned = true);
 
     try {
-      await ref.read(socialServiceProvider).scanQrOtp(otp);
+      await ref.read(socialServiceProvider).scanQrToken(token);
       await ref.read(friendNotifierProvider.notifier).refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

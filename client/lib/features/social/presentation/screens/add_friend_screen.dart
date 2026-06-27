@@ -54,5 +54,5 @@ class AddFriendScreen extends ConsumerWidget {
 }
 
 final _qrOtpProvider = FutureProvider<String>((ref) async {
-  return ref.read(socialServiceProvider).generateQrOtp();
+  return ref.read(socialServiceProvider).generateQrToken();
 });

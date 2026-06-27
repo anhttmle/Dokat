@@ -139,6 +139,26 @@ edge của viewer. Vì feed chỉ trả post mà viewer là recipient nên có
 
 ---
 
+## DL-F06-11 — Flutter `Post` domain model dùng `cdn_url` + `seen`; bỏ `seenByCount`
+
+**Date:** 2026-06-27
+**Context:** Khi tích hợp client với backend thật (Firebase live), phát hiện
+`Post.fromJson` đọc sai key JSON. Backend `FeedItemResponse` trả `cdn_url`
+(không phải `image_url`), `seen: bool` (không phải `seen_by_me`), và không
+có field `seen_by_count`. Flutter model trước đó dùng các key cũ từ giai
+đoạn dev/mock.
+**Decision:**
+- `Post.fromJson`: đọc `json['cdn_url']`, `json['seen']`, bỏ `seenByCount`.
+- `FeedItem` widget: đổi badge `seenByCount` thành icon seen/unseen
+  (`Icons.visibility` / `Icons.visibility_outlined`) — backend feed endpoint
+  không trả count (count chỉ có ở `GET /posts/{id}/seen-by` dành cho Sender).
+- `Post.copyWith`: bỏ param `seenByCount`.
+**Consequence:** Feed render đúng ảnh CDN. Count không hiển thị trên
+feed view (đúng business logic — Recipient không cần biết bao nhiêu người
+đã xem, chỉ Sender mới xem danh sách qua F07 `SeenByList`).
+
+---
+
 ## DL-F06-10 — Chi tiết hiện thực client: fallback "ngày trước" + placeholder URI
 
 **Date:** 2026-06-22

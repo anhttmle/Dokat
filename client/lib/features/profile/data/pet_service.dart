@@ -10,8 +10,10 @@ class PetService {
 
   /// GET /pets
   Future<List<PetProfile>> getPets() async {
-    final response = await _dio.get<List<dynamic>>('/pets');
-    return (response.data ?? [])
+    final response = await _dio.get<Map<String, dynamic>>('/pets');
+    final list =
+        (response.data?['pets'] as List<dynamic>?) ?? [];
+    return list
         .cast<Map<String, dynamic>>()
         .map(PetProfile.fromJson)
         .toList();
@@ -53,17 +55,26 @@ class PetService {
   }
 
   /// PATCH /pets/:petId/link-photo
-  Future<void> linkPhoto(String petId, String photoUrl) async {
+  ///
+  /// [photoId] is the UUID of the post photo to link.
+  Future<void> linkPhoto(String petId, String photoId) async {
     await _dio.patch<void>(
       '/pets/$petId/link-photo',
-      data: {'photo_url': photoUrl},
+      data: {'photo_id': photoId},
     );
   }
 
   /// GET /pets/:petId/photos
+  ///
+  /// Returns a list of CDN URLs for the pet's timeline photos.
   Future<List<String>> getPetPhotos(String petId) async {
     final response =
-        await _dio.get<List<dynamic>>('/pets/$petId/photos');
-    return (response.data ?? []).cast<String>();
+        await _dio.get<Map<String, dynamic>>('/pets/$petId/photos');
+    final photos =
+        (response.data?['photos'] as List<dynamic>?) ?? [];
+    return photos
+        .cast<Map<String, dynamic>>()
+        .map((item) => item['cdn_url'] as String)
+        .toList();
   }
 }

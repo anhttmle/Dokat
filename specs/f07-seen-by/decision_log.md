@@ -132,6 +132,22 @@ nhánh này hiếm; chốt chặn tránh 500 khi gọi API trực tiếp.
 
 ---
 
+## DL-F07-11 — Flutter `SeenService.getSeenBy()` parse `viewers[]` từ `SeenByResponse`
+
+**Date:** 2026-06-27
+**Context:** Khi tích hợp client với backend thật, phát hiện `SeenService.getSeenBy()`
+parse response như `List<String>` (cast trực tiếp), nhưng backend `SeenByResponse`
+trả `{post_id, seen_count: int, viewers: [{user_id, display_name, avatar_url, seen_at}]}`.
+**Decision:** `getSeenBy()` đổi sang `get<Map<String, dynamic>>`, đọc
+`response.data['viewers']`, map mỗi viewer lấy `display_name` (skip nếu null/empty),
+giữ return type `List<String>` để `SeenByList` widget không cần thay đổi.
+Widget hiển thị tên bằng `Chip(label: Text(name))` như cũ.
+**Consequence:** `SeenByList` hiển thị đúng tên người đã xem từ backend thật.
+Nếu sau này widget cần avatar hoặc `seen_at`, cần thay đổi return type
+`getSeenBy()` thành `List<SeenViewer>` và cập nhật widget.
+
+---
+
 ## DL-F07-10 — Thay test `markSeen` cũ trong `FeedService.test.ts`
 
 **Date:** 2026-06-22

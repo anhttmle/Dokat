@@ -43,19 +43,19 @@ class _RecipientSelectorScreenState
       final imagePath = widget.imageData['image_path'] as String;
       final petId = widget.imageData['pet_id'] as String?;
 
-      final uploadUrl = await sendService.getUploadUrl('image/jpeg');
-      final imageUrl = await captureService.uploadImage(
-        XFile(imagePath),
-        uploadUrl,
-      );
+      final (:uploadUrl, :s3Key, :cdnUrl) =
+          await sendService.getUploadUrl('image/jpeg');
+      await captureService.uploadImage(XFile(imagePath), uploadUrl);
 
       final location = await LocationService().getCurrentPayload();
 
       await sendService.sendPost(
-        imageUrl: imageUrl,
+        s3Key: s3Key,
+        cdnUrl: cdnUrl,
         recipientIds: _selectedIds.toList(),
         petId: petId,
-        locationPayload: location,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
       );
 
       if (mounted) {

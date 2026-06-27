@@ -270,6 +270,30 @@ test behaviour này nên không cần mock.
 
 ---
 
+## DL-F02-20: Flutter `PetService`: parse `{pets:[...]}` wrapper; `linkPhoto` nhận `photo_id` UUID; `getPetPhotos` parse `{photos:[]}`
+
+**Date:** 2026-06-27
+**Context:** Khi tích hợp client với backend thật, phát hiện 3 mismatch trong
+`PetService`:
+1. `getPets()` parse `response.data` trực tiếp như `List`, nhưng backend
+   `PetListResponse` trả `{pets: [...]}` (wrapped object).
+2. `linkPhoto(petId, photoUrl)` gửi `{'photo_url': photoUrl}`, nhưng backend
+   `LinkPhotoRequest` nhận `photo_id: uuid.UUID` (UUID của post photo, không phải URL).
+3. `getPetPhotos()` parse response như `List<String>`, nhưng backend
+   `PetPhotosResponse` trả `{photos: [{photo_id, cdn_url, taken_at}], next_cursor, has_more}`.
+**Decision:**
+- `getPets()`: đọc `response.data['pets']` (typed `Map<String, dynamic>`).
+- `linkPhoto(petId, photoId)`: đổi param từ `photoUrl` → `photoId: String`,
+  gửi `{'photo_id': photoId}`.
+- `getPetPhotos()`: đọc `response.data['photos']`, extract `cdn_url` từ mỗi
+  item; giữ return type `List<String>` (URL) để `PetTimelineScreen` không đổi.
+**Consequence:** Pet timeline và link-photo hoạt động với backend thật. Tham số
+`photoId` là UUID string của post (`posts.id`) — call site phải truyền UUID,
+không phải CDN URL. Nếu sau này timeline cần `photo_id` + `taken_at`, cần
+thay đổi return type thành list typed struct.
+
+---
+
 ## DL-F02-08: ProfileService dùng `fetch` làm HTTP transport
 
 **Ngày:** 2026-06-21

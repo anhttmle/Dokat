@@ -17,7 +17,7 @@ void main() {
     service = SendService(dio: mockDio);
   });
 
-  test('getUploadUrl returns upload_url from response', () async {
+  test('getUploadUrl returns upload_url, s3Key, cdnUrl', () async {
     when(
       mockDio.post<Map<String, dynamic>>(
         '/posts/upload-url',
@@ -27,16 +27,29 @@ void main() {
       (_) async => Response(
         requestOptions:
             RequestOptions(path: '/posts/upload-url'),
-        data: {'upload_url': 'https://s3.example.com/upload'},
+        data: {
+          'upload_url': 'https://s3.example.com/upload?sig=x',
+          'object_key': 'posts/abc123.jpg',
+          'cdn_url': 'https://cdn.example.com/posts/abc123.jpg',
+          'expires_in': 300,
+        },
         statusCode: 200,
       ),
     );
 
-    final url = await service.getUploadUrl('image/jpeg');
-    expect(url, 'https://s3.example.com/upload');
+    final result = await service.getUploadUrl('image/jpeg');
+    expect(
+      result.uploadUrl,
+      'https://s3.example.com/upload?sig=x',
+    );
+    expect(result.s3Key, 'posts/abc123.jpg');
+    expect(
+      result.cdnUrl,
+      'https://cdn.example.com/posts/abc123.jpg',
+    );
   });
 
-  test('sendPost calls POST /posts with required fields', () async {
+  test('sendPost calls POST /posts with s3_key and cdn_url', () async {
     when(
       mockDio.post<void>(
         '/posts',
@@ -50,7 +63,8 @@ void main() {
     );
 
     await service.sendPost(
-      imageUrl: 'https://cdn.example.com/photo.jpg',
+      s3Key: 'posts/abc123.jpg',
+      cdnUrl: 'https://cdn.example.com/posts/abc123.jpg',
       recipientIds: ['u2', 'u3'],
     );
 
@@ -58,7 +72,10 @@ void main() {
       mockDio.post<void>(
         '/posts',
         data: argThat(
-          containsPair('recipient_ids', ['u2', 'u3']),
+          allOf(
+            containsPair('s3_key', 'posts/abc123.jpg'),
+            containsPair('recipient_ids', ['u2', 'u3']),
+          ),
           named: 'data',
         ),
       ),

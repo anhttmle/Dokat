@@ -155,6 +155,32 @@ nhánh này hiếm; chốt chặn tránh 500 khi gọi API trực tiếp.
 
 ---
 
+## DL-F05-11 — Flutter `SendService`: `getUploadUrl` trả record; `sendPost` dùng `s3_key`+`cdn_url`; `CaptureService.uploadImage` trả `void`
+
+**Date:** 2026-06-27
+**Context:** Khi tích hợp client với backend thật, phát hiện 3 mismatch trong
+luồng gửi ảnh:
+1. `getUploadUrl()` chỉ lấy `upload_url`, bỏ mất `object_key` (s3_key) và
+   `cdn_url` mà backend `PresignedUrlResponse` trả kèm.
+2. `sendPost()` gửi `image_url` thay vì `s3_key`+`cdn_url`, và gửi nested
+   `location: {latitude, longitude}` thay vì flat `latitude`/`longitude` như
+   `CreatePostRequest` yêu cầu.
+3. `CaptureService.uploadImage()` trả `String` bằng cách strip query param
+   của presigned URL — cách này sai vì CDN URL và S3 base URL là khác nhau.
+**Decision:**
+- `getUploadUrl()` trả Dart named record `({String uploadUrl, String s3Key, String cdnUrl})`.
+- `sendPost()` đổi signature: nhận `s3Key`, `cdnUrl`, `double? latitude`,
+  `double? longitude` thay vì `imageUrl` và nested `locationPayload`.
+- `CaptureService.uploadImage()` trả `void` — CDN URL lấy từ response của
+  `getUploadUrl`, không cần derive từ presigned URL.
+- `LocationService.getCurrentPayload()` trả `LocationPayload?` (typed) thay vì
+  `Map<String, dynamic>?` để call site truy cập `.latitude`/`.longitude` an toàn.
+- `RecipientSelectorScreen` cập nhật để destructure record và truyền đúng fields.
+**Consequence:** Luồng upload hoàn chỉnh và chính xác: server cấp key → upload
+PUT S3 → confirm với s3_key + cdn_url. Không còn derive CDN URL sai từ presigned URL.
+
+---
+
 ## DL-F05-10 — `created_at`/`expires_at` tính ở Python trong service
 
 **Date:** 2026-06-22
