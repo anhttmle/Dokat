@@ -79,13 +79,25 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
                     "message": "Token has been revoked",
                 },
             )
+        except (
+            firebase_admin.auth.InvalidIdTokenError,
+            firebase_admin.auth.UserDisabledError,
+            ValueError,
+        ):
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "error": "AUTH_TOKEN_INVALID",
+                    "message": "Token is invalid",
+                },
+            )
         except Exception:  # noqa: BLE001
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={
                     "error": "AUTH_SERVICE_UNAVAILABLE",
                     "message": (
-                        "Authentication service is temporarily" " unavailable"
+                        "Authentication service is temporarily unavailable"
                     ),
                 },
             )

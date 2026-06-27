@@ -58,22 +58,22 @@ def upgrade() -> None:
         sa.Column("name", sa.String(100), nullable=False),
         sa.Column(
             "species",
-            sa.Enum(
+            postgresql.ENUM(
                 "dog",
                 "cat",
                 name="pet_species",
-                create_constraint=True,
+                create_type=False,
             ),
             nullable=False,
         ),
         sa.Column(
             "gender",
-            sa.Enum(
+            postgresql.ENUM(
                 "male",
                 "female",
                 "unknown",
                 name="pet_gender",
-                create_constraint=True,
+                create_type=False,
             ),
             nullable=False,
             server_default="unknown",

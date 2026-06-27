@@ -10,8 +10,12 @@ class FeedService {
 
   /// GET /feed
   Future<List<Post>> getFeed() async {
-    final response = await _dio.get<List<dynamic>>('/feed');
-    return (response.data ?? [])
+    final response = await _dio.get<dynamic>('/feed');
+    final raw = response.data;
+    final items = raw is Map
+        ? (raw['items'] as List<dynamic>? ?? [])
+        : (raw as List<dynamic>? ?? []);
+    return items
         .cast<Map<String, dynamic>>()
         .map(Post.fromJson)
         .toList();

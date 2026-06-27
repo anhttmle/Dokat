@@ -1,14 +1,17 @@
-import 'dart:async';
+import 'dart:async' show StreamSubscription, unawaited;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/providers.dart';
 import '../../data/auth_service.dart';
 import '../../domain/auth_state.dart';
 
 /// Provides [AuthState] and exposes auth operations to the UI.
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(AuthService()),
+  (ref) => AuthNotifier(
+    AuthService(dio: ref.read(dioProvider)),
+  ),
 );
 
 /// Manages authentication state for the entire app.
@@ -21,14 +24,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
   StreamSubscription<dynamic>? _sub;
 
   void _init() {
-    _sub = _service.userChanges.listen(_handleUserChange);
+    _sub = _service.userChanges.listen(
+      (user) => _handleUserChange(user),
+    );
   }
 
-  void _handleUserChange(dynamic user) {
+  Future<void> _handleUserChange(dynamic user) async {
     if (user == null) {
-      _signInAnonymously();
+      unawaited(_signInAnonymously());
       return;
     }
+    // Upsert backend user row BEFORE setting AuthAuthenticated so that
+    // any API call triggered by the state change finds the user in DB.
+    await _service.syncSession();
     if (_isForceLinkRequired()) {
       state = AuthForceLinkRequired(user: user);
       return;

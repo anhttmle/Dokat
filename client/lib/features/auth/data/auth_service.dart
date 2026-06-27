@@ -1,21 +1,38 @@
+import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Handles Firebase authentication operations.
 ///
 /// Covers anonymous sign-in, OAuth link, and sign-out.
-/// Does not make HTTP calls — backend auth is handled via
-/// Firebase ID Token in [api_client.dart].
+/// Calls [syncSession] after every successful sign-in to upsert the
+/// user row in the backend database via POST /auth/session.
 class AuthService {
-  AuthService({FirebaseAuth? auth})
-      : _auth = auth ?? FirebaseAuth.instance;
+  AuthService({FirebaseAuth? auth, Dio? dio})
+      : _auth = auth ?? FirebaseAuth.instance,
+        _dio = dio;
 
   final FirebaseAuth _auth;
+  final Dio? _dio;
 
   /// Stream of Firebase [User] changes.
   Stream<User?> get userChanges => _auth.userChanges();
 
   /// Current user, or null if not signed in.
   User? get currentUser => _auth.currentUser;
+
+  /// Upserts the user row in the backend database.
+  ///
+  /// Must be called after any successful Firebase sign-in so that
+  /// all subsequent API calls find the user in the DB.
+  Future<void> syncSession() async {
+    if (_dio == null) return;
+    try {
+      await _dio.post<dynamic>('/auth/session');
+    } catch (_) {
+      // Sync failures are non-fatal; the next API call will surface
+      // a meaningful error if the session is still missing.
+    }
+  }
 
   /// Signs in anonymously, creating a guest account.
   Future<UserCredential> signInAnonymously() =>

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../../feed/domain/post.dart';
+import '../domain/history_item.dart';
 
 /// HTTP service for the history (sent/received) endpoints.
 class HistoryService {
@@ -9,21 +9,24 @@ class HistoryService {
   final Dio _dio;
 
   /// GET /history/sent
-  Future<List<Post>> getSentHistory() async {
-    final response = await _dio.get<List<dynamic>>('/history/sent');
-    return (response.data ?? [])
+  Future<List<SentHistoryItem>> getSentHistory() async {
+    final response = await _dio.get<dynamic>('/history/sent');
+    final data = response.data as Map<String, dynamic>;
+    final items = data['items'] as List<dynamic>? ?? [];
+    return items
         .cast<Map<String, dynamic>>()
-        .map(Post.fromJson)
+        .map(SentHistoryItem.fromJson)
         .toList();
   }
 
   /// GET /history/received
-  Future<List<Post>> getReceivedHistory() async {
-    final response =
-        await _dio.get<List<dynamic>>('/history/received');
-    return (response.data ?? [])
+  Future<List<ReceivedHistoryItem>> getReceivedHistory() async {
+    final response = await _dio.get<dynamic>('/history/received');
+    final data = response.data as Map<String, dynamic>;
+    final items = data['items'] as List<dynamic>? ?? [];
+    return items
         .cast<Map<String, dynamic>>()
-        .map(Post.fromJson)
+        .map(ReceivedHistoryItem.fromJson)
         .toList();
   }
 }

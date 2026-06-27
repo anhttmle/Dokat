@@ -49,12 +49,12 @@ def upgrade() -> None:
         ),
         sa.Column(
             "provider",
-            sa.Enum(
+            postgresql.ENUM(
                 "apple",
                 "google",
                 "facebook",
                 name="oauth_provider",
-                create_constraint=True,
+                create_type=False,
             ),
             nullable=False,
         ),

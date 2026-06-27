@@ -30,8 +30,11 @@ class SocialService {
 
   /// GET /friends
   Future<List<Friend>> getFriends() async {
-    final response = await _dio.get<List<dynamic>>('/friends');
-    return (response.data ?? [])
+    final response = await _dio.get<dynamic>('/friends');
+    final data = response.data;
+    final list =
+        data is Map ? (data['friends'] as List?) ?? [] : (data as List?) ?? [];
+    return list
         .cast<Map<String, dynamic>>()
         .map(Friend.fromJson)
         .toList();

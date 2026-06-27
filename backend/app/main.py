@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
+from app.core.firebase import get_firebase_app
 from app.middleware.auth import FirebaseAuthMiddleware
 from app.routers.auth import router as auth_router
 from app.routers.feed import router as feed_router
@@ -23,6 +24,9 @@ app = FastAPI(
     version="0.1.0",
     swagger_ui_parameters={"persistAuthorization": True},
 )
+
+# Initialise Firebase Admin SDK at startup.
+get_firebase_app()
 
 # Middleware execution order is LIFO: last-added runs first.
 # FirebaseAuthMiddleware is added first so CORSMiddleware (added last)

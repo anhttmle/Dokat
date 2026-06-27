@@ -102,13 +102,13 @@ def upgrade() -> None:
         ),
         sa.Column(
             "reason",
-            sa.Enum(
+            postgresql.ENUM(
                 "spam",
                 "inappropriate",
                 "harassment",
                 "other",
                 name="report_reason",
-                create_constraint=True,
+                create_type=False,
             ),
             nullable=False,
         ),

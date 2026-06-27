@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers.dart';
-import '../../../feed/domain/post.dart';
 import '../../data/history_service.dart';
+import '../../domain/history_item.dart';
 import '../widgets/history_list.dart';
 
 /// Displays the user's sent and received photo history (last 24 h).
@@ -32,6 +32,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final service = HistoryService(dio: ref.read(dioProvider));
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lịch sử'),
@@ -46,28 +47,22 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _HistoryTab(
-            loader: () => HistoryService(dio: ref.read(dioProvider))
-                .getSentHistory(),
-          ),
-          _HistoryTab(
-            loader: () => HistoryService(dio: ref.read(dioProvider))
-                .getReceivedHistory(),
-          ),
+          _SentTab(loader: service.getSentHistory),
+          _ReceivedTab(loader: service.getReceivedHistory),
         ],
       ),
     );
   }
 }
 
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({required this.loader});
+class _SentTab extends StatelessWidget {
+  const _SentTab({required this.loader});
 
-  final Future<List<Post>> Function() loader;
+  final Future<List<SentHistoryItem>> Function() loader;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Post>>(
+    return FutureBuilder<List<SentHistoryItem>>(
       future: loader(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -76,7 +71,29 @@ class _HistoryTab extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(child: Text('Lỗi: ${snapshot.error}'));
         }
-        return HistoryList(posts: snapshot.data ?? []);
+        return SentHistoryList(items: snapshot.data ?? []);
+      },
+    );
+  }
+}
+
+class _ReceivedTab extends StatelessWidget {
+  const _ReceivedTab({required this.loader});
+
+  final Future<List<ReceivedHistoryItem>> Function() loader;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ReceivedHistoryItem>>(
+      future: loader(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Lỗi: ${snapshot.error}'));
+        }
+        return ReceivedHistoryList(items: snapshot.data ?? []);
       },
     );
   }
