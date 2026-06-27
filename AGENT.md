@@ -179,21 +179,93 @@ cd demo && npx expo start --web
 
 | ID  | Feature                          | Priority | Trạng thái |
 |-----|----------------------------------|----------|------------|
-| F01 | Authentication & Guest Mode      | P0 | Implemented (Flutter + backend) |
-| F02 | Owner Profile & Pet Profile      | P0 | Implemented (Flutter + backend) |
-| F03 | Social Graph — Kết bạn qua QR    | P0 | Implemented (Flutter + backend) |
-| F04 | Capture Ảnh + AI Validation      | P0 | Implemented (Flutter) |
-| F05 | Gửi Ảnh (Multi-Recipient)        | P0 | Implemented (Flutter) |
-| F06 | Feed & App View                  | P0 | Implemented (Flutter) |
-| F07 | Seen By                          | P1 | Implemented (Flutter) |
-| F08 | History / Timeline (1 ngày)      | P1 | Implemented (Flutter) |
-| F09 | Notification System              | P1 | Implemented (Flutter) |
-| F10 | Settings                         | P1 | Implemented (Flutter) |
-| F11 | Location & Time Metadata         | P2 | Implemented (Flutter) |
+| F01 | Authentication & Guest Mode      | P0 | Integrated (Flutter + backend, Firebase live) |
+| F02 | Owner Profile & Pet Profile      | P0 | Integrated (Flutter + backend, Firebase live) |
+| F03 | Social Graph — Kết bạn qua QR    | P0 | Integrated (Flutter + backend, Firebase live) |
+| F04 | Capture Ảnh + AI Validation      | P0 | Implemented (Flutter client-only) |
+| F05 | Gửi Ảnh (Multi-Recipient)        | P0 | Integrated (Flutter + backend, Firebase live) |
+| F06 | Feed & App View                  | P0 | Integrated (Flutter + backend, Firebase live) |
+| F07 | Seen By                          | P1 | Integrated (Flutter + backend, Firebase live) |
+| F08 | History / Timeline (1 ngày)      | P1 | Implemented (Flutter — cần verify contract) |
+| F09 | Notification System              | P1 | Implemented (Flutter — cần verify contract) |
+| F10 | Settings                         | P1 | Integrated (Flutter + backend, Firebase live) |
+| F11 | Location & Time Metadata         | P2 | Implemented (Flutter client-only, stub null) |
 
 ---
 
-## 7. Quyết định kiến trúc cần biết
+## 7. Client ↔ Backend API contract (đã verified, 2026-06-27)
+
+> Backend là **source of truth**. Mọi field name, response shape phải khớp
+> với `backend/app/schemas/`. Xem `specs/<feature>/decision_log.md` để biết
+> lý do từng quyết định.
+
+### Flutter service map
+
+| Flutter service | File | Backend prefix |
+|-----------------|------|----------------|
+| `AuthService` | `features/auth/data/auth_service.dart` | `POST /auth/session`, `/auth/link` |
+| `ProfileService` | `features/profile/data/profile_service.dart` | `/profile/me` |
+| `PetService` | `features/profile/data/pet_service.dart` | `/pets` |
+| `SocialService` | `features/social/data/social_service.dart` | `/friends` |
+| `SendService` | `features/send/data/send_service.dart` | `/posts` |
+| `FeedService` | `features/feed/data/feed_service.dart` | `/feed` |
+| `SeenService` | `features/seen/data/seen_service.dart` | `/posts/{id}/seen` |
+| `HistoryService` | `features/history/data/history_service.dart` | `/history` |
+| `NotificationService` | `features/notifications/data/notification_service.dart` | `/notifications` |
+| `SettingsService` | `features/settings/data/settings_service.dart` | `/users` |
+| `LocationService` | `features/location/data/location_service.dart` | client-only (stub null) |
+
+### Response shape quan trọng (hay bị nhầm)
+
+```
+GET  /pets            → { pets: [...] }           (không phải list thẳng)
+GET  /friends         → { friends: [...], total }
+GET  /users/block     → { blocked: [...], total }
+GET  /feed            → { items: [...], next_cursor }
+GET  /pets/{id}/photos→ { pet_id, photos: [{photo_id, cdn_url, taken_at}], ... }
+GET  /posts/{id}/seen-by → { post_id, seen_count, viewers: [{user_id, display_name, ...}] }
+POST /posts/upload-url→ { upload_url, object_key, cdn_url, expires_in }
+POST /auth/session    → { user_id, is_anonymous, providers, display_name, avatar_url }
+```
+
+### Field name dễ nhầm
+
+| Endpoint | Field đúng | Field SAI (cũ) |
+|----------|-----------|----------------|
+| `POST /friends/qr/generate` response | `token` | ~~`otp`~~ |
+| `POST /friends/qr/scan` request | `token` | ~~`otp`~~ |
+| `POST /posts` request | `s3_key`, `cdn_url` | ~~`image_url`~~ |
+| `POST /posts` request | `latitude`, `longitude` (flat) | ~~`location: {lat, lng}`~~ |
+| `GET /feed` response | `cdn_url`, `seen` | ~~`image_url`, `seen_by_me`~~ |
+| `POST /users/block` request | `user_id` | ~~`target_user_id`~~ |
+| `POST /users/report` request | `user_id` | ~~`target_user_id`~~ |
+| `PATCH /pets/{id}/link-photo` request | `photo_id` (UUID) | ~~`photo_url`~~ |
+
+### Luồng upload ảnh (F05 — quan trọng)
+
+```
+1. POST /posts/upload-url → { upload_url, object_key, cdn_url }
+2. PUT <upload_url> (binary, S3 presigned) — không trả body
+3. POST /posts { s3_key: object_key, cdn_url, recipient_ids, latitude?, longitude? }
+```
+
+`CaptureService.uploadImage()` chỉ thực hiện bước 2 (void). CDN URL lấy từ
+bước 1, không strip-parse từ presigned URL.
+
+### Auth header
+
+Mọi request đính kèm Firebase ID Token:
+
+```
+Authorization: Bearer <firebase_id_token>
+```
+
+`api_client.dart` inject token tự động qua Dio interceptor. Backend verify
+token qua `FirebaseAuthMiddleware` rồi inject `request.state.firebase_uid`.
+
+---
+
+## 8. Quyết định kiến trúc cần biết
 
 - **Auth flow:** Firebase Anonymous Auth khởi tạo guest ngay khi mở app,
   sau đó link OAuth provider mà không mất dữ liệu. Backend verify Firebase
@@ -219,10 +291,15 @@ cd demo && npx expo start --web
 - Flutter SDK chưa cài — cần cài Flutter 3.22+ trước khi chạy bất kỳ
   Flutter command nào.
 - `client-rn/` giữ nguyên làm reference; không cần maintain.
+- **F08 (`history_service.dart`) và F09 (`notification_service.dart`) chưa
+  được verify contract với backend** — cần rà soát tương tự F01–F07/F10
+  trước khi chạy thật.
+- **F11 (`location_service.dart`):** `getCurrentPayload()` trả `null` (stub).
+  Tích hợp `geolocator` package thực sự là task riêng chưa làm.
 
 ---
 
-## 8. Coding standards
+## 9. Coding standards
 
 - **Python (backend):** PEP 8 / PEP 257, 4 spaces, line ≤ 79 ký tự, một
   class/function chính mỗi file. Format bằng `black` + `isort`, lint bằng
