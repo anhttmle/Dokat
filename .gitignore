@@ -63,6 +63,8 @@ client-rn/ios/Podfile.lock
 client-rn/android/build/
 client-rn/android/.gradle/
 client-rn/android/app/build/
+client-rn/android/app/.cxx/
+client-rn/android/local.properties
 *.jks
 *.p8
 *.p12
@@ -70,6 +72,9 @@ client-rn/android/app/build/
 *.mobileprovision
 *.orig.*
 web-build/
+
+# Temporary TypeScript config files
+client-rn/tsconfig.f*.json
 
 # Expo
 .expo/
