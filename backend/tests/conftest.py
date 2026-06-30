@@ -1,8 +1,14 @@
 """Shared pytest fixtures for the backend test suite."""
 
+import os
 from unittest.mock import patch
 
 import pytest
+
+# Ensure JWT_SECRET_KEY is set so jwt_auth tests work without .env.
+os.environ.setdefault(
+    "JWT_SECRET_KEY", "test-secret-key-minimum-32-chars!!"
+)
 
 
 @pytest.fixture(autouse=False)

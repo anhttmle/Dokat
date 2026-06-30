@@ -1,60 +1,96 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
+import 'package:dokat/core/api_client.dart';
 import 'package:dokat/features/auth/data/auth_service.dart';
 
 import 'auth_service_test.mocks.dart';
 
-@GenerateMocks([FirebaseAuth, User, UserCredential])
+@GenerateMocks([Dio, FlutterSecureStorage])
 void main() {
-  late MockFirebaseAuth mockAuth;
-  late MockUser mockUser;
+  late MockDio mockDio;
+  late MockFlutterSecureStorage mockStorage;
   late AuthService service;
 
   setUp(() {
-    mockAuth = MockFirebaseAuth();
-    mockUser = MockUser();
-    service = AuthService(auth: mockAuth);
+    mockDio = MockDio();
+    mockStorage = MockFlutterSecureStorage();
+    service = AuthService(dio: mockDio, secureStorage: mockStorage);
   });
 
-  group('AuthService.isLinked', () {
-    test('returns false when user has only firebase provider', () {
-      final mockInfo = _MockProviderInfo('firebase');
-      when(mockAuth.currentUser).thenReturn(mockUser);
-      when(mockUser.providerData).thenReturn([mockInfo]);
+  group('AuthService.signInWithDeviceId', () {
+    test('stores JWT and user_id from POST /auth/token', () async {
+      when(mockStorage.read(key: kDeviceIdKey))
+          .thenAnswer((_) async => 'device-abc');
+      when(
+        mockDio.post<Map<String, dynamic>>(
+          '/auth/token',
+          data: anyNamed('data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/auth/token'),
+          data: {
+            'access_token': 'jwt-token',
+            'user_id': 'user-uuid',
+          },
+        ),
+      );
 
-      expect(service.isLinked, isFalse);
+      await service.signInWithDeviceId();
+
+      verify(mockStorage.write(key: kJwtTokenKey, value: 'jwt-token'))
+          .called(1);
+      verify(mockStorage.write(key: kJwtUserIdKey, value: 'user-uuid'))
+          .called(1);
     });
 
-    test('returns true when user has google provider', () {
-      final mockInfo = _MockProviderInfo('google.com');
-      when(mockAuth.currentUser).thenReturn(mockUser);
-      when(mockUser.providerData).thenReturn([mockInfo]);
+    test('generates device_id when none stored', () async {
+      when(mockStorage.read(key: kDeviceIdKey)).thenAnswer((_) async => null);
+      when(mockStorage.write(key: anyNamed('key'), value: anyNamed('value')))
+          .thenAnswer((_) async {});
+      when(
+        mockDio.post<Map<String, dynamic>>(
+          '/auth/token',
+          data: anyNamed('data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/auth/token'),
+          data: {
+            'access_token': 'jwt-token',
+            'user_id': 'user-uuid',
+          },
+        ),
+      );
 
-      expect(service.isLinked, isTrue);
+      await service.signInWithDeviceId();
+
+      verify(
+        mockStorage.write(
+          key: kDeviceIdKey,
+          value: argThat(isNotEmpty, named: 'value'),
+        ),
+      ).called(1);
     });
   });
 
-  group('AuthService.signInAnonymously', () {
-    test('delegates to FirebaseAuth', () async {
-      final mockCred = MockUserCredential();
-      when(mockAuth.signInAnonymously())
-          .thenAnswer((_) async => mockCred);
+  group('AuthService.hasJwtSession', () {
+    test('returns true when jwt_token exists', () async {
+      when(mockStorage.read(key: kJwtTokenKey))
+          .thenAnswer((_) async => 'token');
 
-      final result = await service.signInAnonymously();
+      expect(await service.hasJwtSession(), isTrue);
+    });
 
-      verify(mockAuth.signInAnonymously()).called(1);
-      expect(result, mockCred);
+    test('returns false when jwt_token is absent', () async {
+      when(mockStorage.read(key: kJwtTokenKey))
+          .thenAnswer((_) async => null);
+
+      expect(await service.hasJwtSession(), isFalse);
     });
   });
-}
-
-class _MockProviderInfo extends Fake implements UserInfo {
-  _MockProviderInfo(this._providerId);
-  final String _providerId;
-
-  @override
-  String get providerId => _providerId;
 }

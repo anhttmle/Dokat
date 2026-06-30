@@ -1,75 +1,85 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Handles Firebase authentication operations.
-///
-/// Covers anonymous sign-in, OAuth link, and sign-out.
-/// Calls [syncSession] after every successful sign-in to upsert the
-/// user row in the backend database via POST /auth/session.
+import '../../../../core/api_client.dart';
+
+/// Storage key for the persistent device identifier.
+const String kDeviceIdKey = 'device_id';
+
+/// Storage key for the user UUID returned by POST /auth/token.
+const String kJwtUserIdKey = 'jwt_user_id';
+
+/// Handles backend JWT authentication via POST /auth/token.
 class AuthService {
-  AuthService({FirebaseAuth? auth, Dio? dio})
-      : _auth = auth ?? FirebaseAuth.instance,
-        _dio = dio;
+  AuthService({
+    required Dio dio,
+    FlutterSecureStorage? secureStorage,
+  })  : _dio = dio,
+        _storage = secureStorage ?? const FlutterSecureStorage();
 
-  final FirebaseAuth _auth;
-  final Dio? _dio;
+  final Dio _dio;
+  final FlutterSecureStorage _storage;
 
-  /// Stream of Firebase [User] changes.
-  Stream<User?> get userChanges => _auth.userChanges();
-
-  /// Current user, or null if not signed in.
-  User? get currentUser => _auth.currentUser;
-
-  /// Upserts the user row in the backend database.
+  /// Signs in using a persistent device ID and POST /auth/token.
   ///
-  /// Must be called after any successful Firebase sign-in so that
-  /// all subsequent API calls find the user in the DB.
-  Future<void> syncSession() async {
-    if (_dio == null) return;
-    try {
-      await _dio.post<dynamic>('/auth/session');
-    } catch (_) {
-      // Sync failures are non-fatal; the next API call will surface
-      // a meaningful error if the session is still missing.
+  /// Generates a new UUID [device_id] on first call and persists it.
+  /// Subsequent calls reuse the same [device_id] → same backend user.
+  Future<void> signInWithDeviceId() async {
+    String? deviceId = await _storage.read(key: kDeviceIdKey);
+    if (deviceId == null) {
+      deviceId = _generateUuid();
+      await _storage.write(key: kDeviceIdKey, value: deviceId);
     }
+
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/token',
+      data: {'device_id': deviceId},
+    );
+
+    final data = response.data!;
+    final token = data['access_token'] as String;
+    final userId = data['user_id'] as String;
+
+    await _storage.write(key: kJwtTokenKey, value: token);
+    await _storage.write(key: kJwtUserIdKey, value: userId);
   }
 
-  /// Signs in anonymously, creating a guest account.
-  Future<UserCredential> signInAnonymously() =>
-      _auth.signInAnonymously();
+  /// Reads the stored JWT user ID.
+  Future<String?> getJwtUserId() => _storage.read(key: kJwtUserIdKey);
 
-  /// Links the current anonymous user with Google OAuth.
-  Future<UserCredential> linkWithGoogle() async {
-    final provider = GoogleAuthProvider();
-    provider.addScope('email');
-    return _auth.currentUser!.linkWithProvider(provider);
+  /// Returns true if a JWT token is present in secure storage.
+  Future<bool> hasJwtSession() async {
+    final token = await _storage.read(key: kJwtTokenKey);
+    return token != null;
   }
 
-  /// Links the current anonymous user with Apple OAuth.
-  Future<UserCredential> linkWithApple() async {
-    final provider = AppleAuthProvider();
-    return _auth.currentUser!.linkWithProvider(provider);
+  /// Clears the stored JWT token and user ID (keeps device_id).
+  Future<void> clearJwtSession() async {
+    await _storage.delete(key: kJwtTokenKey);
+    await _storage.delete(key: kJwtUserIdKey);
   }
 
-  /// Links the current anonymous user with Facebook OAuth.
-  Future<UserCredential> linkWithFacebook() async {
-    final provider = FacebookAuthProvider();
-    return _auth.currentUser!.linkWithProvider(provider);
+  /// Signs out locally and obtains a fresh JWT for the same device.
+  Future<void> signOut() async {
+    await clearJwtSession();
+    await signInWithDeviceId();
   }
 
-  /// Returns true if the current user has linked at least one
-  /// OAuth provider (Google, Apple, or Facebook).
-  bool get isLinked {
-    final user = _auth.currentUser;
-    if (user == null) return false;
-    return user.providerData
-        .any((info) => info.providerId != 'firebase');
+  /// Generates a random UUID v4 string without external packages.
+  static String _generateUuid() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+    return [
+      bytes.sublist(0, 4).map(hex).join(),
+      bytes.sublist(4, 6).map(hex).join(),
+      bytes.sublist(6, 8).map(hex).join(),
+      bytes.sublist(8, 10).map(hex).join(),
+      bytes.sublist(10, 16).map(hex).join(),
+    ].join('-');
   }
-
-  /// Returns the [DateTime] when the current user was created.
-  DateTime? get creationTime =>
-      _auth.currentUser?.metadata.creationTime;
-
-  /// Signs out the current user.
-  Future<void> signOut() => _auth.signOut();
 }

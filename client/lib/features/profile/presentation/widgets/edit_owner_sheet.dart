@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/profile_notifier.dart';
 
-/// Bottom sheet for editing the owner's display name and bio.
+/// Bottom sheet for editing the owner's display name.
 class EditOwnerSheet extends ConsumerStatefulWidget {
   const EditOwnerSheet({super.key});
 
@@ -13,7 +13,6 @@ class EditOwnerSheet extends ConsumerStatefulWidget {
 
 class _EditOwnerSheetState extends ConsumerState<EditOwnerSheet> {
   late final TextEditingController _nameController;
-  late final TextEditingController _bioController;
   bool _loading = false;
 
   @override
@@ -22,13 +21,11 @@ class _EditOwnerSheetState extends ConsumerState<EditOwnerSheet> {
     final profile = ref.read(profileNotifierProvider).value;
     _nameController =
         TextEditingController(text: profile?.displayName ?? '');
-    _bioController = TextEditingController(text: profile?.bio ?? '');
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _bioController.dispose();
     super.dispose();
   }
 
@@ -38,7 +35,6 @@ class _EditOwnerSheetState extends ConsumerState<EditOwnerSheet> {
     setState(() => _loading = true);
     await ref.read(profileNotifierProvider.notifier).updateProfile({
       'display_name': name,
-      'bio': _bioController.text.trim(),
     });
     if (mounted) Navigator.of(context).pop();
   }
@@ -64,12 +60,6 @@ class _EditOwnerSheetState extends ConsumerState<EditOwnerSheet> {
           TextField(
             controller: _nameController,
             decoration: const InputDecoration(labelText: 'Tên hiển thị'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _bioController,
-            decoration: const InputDecoration(labelText: 'Bio'),
-            maxLines: 3,
           ),
           const SizedBox(height: 24),
           FilledButton(

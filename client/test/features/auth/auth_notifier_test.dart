@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
@@ -12,21 +9,15 @@ import 'package:dokat/features/auth/presentation/providers/auth_notifier.dart';
 
 import 'auth_notifier_test.mocks.dart';
 
-@GenerateMocks([AuthService, User])
+@GenerateMocks([AuthService])
 void main() {
   late MockAuthService mockService;
-  late StreamController<User?> userController;
 
   setUp(() {
     mockService = MockAuthService();
-    userController = StreamController<User?>.broadcast();
-    when(mockService.userChanges).thenAnswer((_) => userController.stream);
+    when(mockService.hasJwtSession()).thenAnswer((_) async => false);
   });
 
-  tearDown(() => userController.close());
-
-  /// Creates a container and immediately triggers [AuthNotifier] creation
-  /// so the stream subscription is registered before we emit events.
   ProviderContainer makeContainer() {
     final container = ProviderContainer(
       overrides: [
@@ -35,71 +26,51 @@ void main() {
         ),
       ],
     );
-    // Trigger lazy creation so the stream subscription is active.
     container.read(authNotifierProvider);
     return container;
   }
 
-  test('emits AuthAuthenticated with isGuest=true for linked=false user',
+  test('emits AuthAuthenticated after signInWithDeviceId', () async {
+    when(mockService.signInWithDeviceId()).thenAnswer((_) async {});
+    when(mockService.getJwtUserId())
+        .thenAnswer((_) async => 'user-uuid');
+
+    final container = makeContainer();
+    addTearDown(container.dispose);
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final state = container.read(authNotifierProvider);
+    expect(state, isA<AuthAuthenticated>());
+    expect((state as AuthAuthenticated).userId, 'user-uuid');
+  });
+
+  test('reuses existing JWT session without calling signInWithDeviceId',
       () async {
-    final mockUser = MockUser();
-    when(mockService.isLinked).thenReturn(false);
-    when(mockService.creationTime)
-        .thenReturn(DateTime.now().subtract(const Duration(days: 1)));
+    when(mockService.hasJwtSession()).thenAnswer((_) async => true);
+    when(mockService.getJwtUserId())
+        .thenAnswer((_) async => 'existing-user');
 
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    userController.add(mockUser);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     final state = container.read(authNotifierProvider);
     expect(state, isA<AuthAuthenticated>());
-    expect((state as AuthAuthenticated).isGuest, isTrue);
+    verifyNever(mockService.signInWithDeviceId());
   });
 
-  test('emits AuthForceLinkRequired after 7 days guest', () async {
-    final mockUser = MockUser();
-    when(mockService.isLinked).thenReturn(false);
-    when(mockService.creationTime)
-        .thenReturn(DateTime.now().subtract(const Duration(days: 8)));
+  test('emits AuthError when signInWithDeviceId fails', () async {
+    when(mockService.signInWithDeviceId())
+        .thenThrow(Exception('network error'));
 
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    userController.add(mockUser);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     final state = container.read(authNotifierProvider);
-    expect(state, isA<AuthForceLinkRequired>());
-  });
-
-  test('emits AuthAuthenticated with isGuest=false when linked', () async {
-    final mockUser = MockUser();
-    when(mockService.isLinked).thenReturn(true);
-    when(mockService.creationTime).thenReturn(DateTime.now());
-
-    final container = makeContainer();
-    addTearDown(container.dispose);
-
-    userController.add(mockUser);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-
-    final state = container.read(authNotifierProvider);
-    expect(state, isA<AuthAuthenticated>());
-    expect((state as AuthAuthenticated).isGuest, isFalse);
-  });
-
-  test('calls signInAnonymously when user stream emits null', () async {
-    when(mockService.signInAnonymously())
-        .thenAnswer((_) async => throw UnimplementedError());
-
-    final container = makeContainer();
-    addTearDown(container.dispose);
-
-    userController.add(null);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-
-    verify(mockService.signInAnonymously()).called(1);
+    expect(state, isA<AuthError>());
   });
 }

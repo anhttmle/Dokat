@@ -34,13 +34,13 @@ pet content, không có ảnh người. MVP nhắm thị trường Việt Nam.
 | State management | Riverpod 2 (AsyncNotifier) |
 | Navigation | go_router 14 |
 | HTTP client | Dio 5 |
-| Auth | Firebase Auth (Anonymous + OAuth Google/Apple/Facebook) via FlutterFire |
+| Auth | **JWT mode** (standalone, default) hoặc Firebase Auth (`AUTH_MODE=firebase`) |
 | Backend | FastAPI (Python) + Uvicorn |
 | Database | PostgreSQL (SQLAlchemy async + asyncpg) |
 | Migrations | Alembic |
-| Cache | Redis (QR OTP) |
-| Storage | AWS S3 + CloudFront CDN |
-| Push notifications | Firebase Cloud Messaging (FCM) via firebase_messaging |
+| Cache | Redis (QR OTP, TTL 5 phút) |
+| Storage | **MinIO** (standalone, default) hoặc AWS S3 + CloudFront CDN (`STORAGE_BACKEND=s3`) |
+| Push notifications | Firebase Cloud Messaging (FCM) — graceful no-op khi không cấu hình |
 | AI validation | On-device (tflite_flutter) — không gọi server |
 | Test (backend) | pytest + httpx + moto + fakeredis |
 | Test (client) | flutter_test + mockito |
@@ -110,13 +110,17 @@ flowchart TD
 
 ### Prerequisites
 
-- Python 3.11+
+**Cách 1 — Docker Compose (khuyến nghị, nhanh nhất):**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) 24+
+- Python 3.11+ (chỉ cần cho backend dev, không cần nếu chỉ chạy Docker)
+- **Flutter 3.22+** (để chạy app mobile)
+
+**Cách 2 — Manual (cài từng service):**
+- Python 3.11+, PostgreSQL 14+, Redis 7+, MinIO server
 - **Flutter 3.22+** — cài theo [flutter.dev/install](https://flutter.dev/docs/get-started/install)
 - Android Studio (cho Android emulator) hoặc Xcode (cho iOS)
-- PostgreSQL 14+
-- Redis 7+
-- Firebase project (để lấy credentials)
-- Dart CLI (đi kèm Flutter SDK)
+
+---
 
 ### Bước 1 — Clone và cài đặt
 
@@ -135,44 +139,125 @@ flutter pub get
 cd ..
 ```
 
-### Bước 2 — Cấu hình biến môi trường backend
+---
 
-Tạo file `backend/.env` (copy mẫu dưới đây):
+### Bước 2 — Credentials & Secrets
+
+> Tất cả giá trị dưới đây là **defaults cho môi trường local/dev**.
+> Production phải thay `JWT_SECRET_KEY` và dùng giá trị riêng.
+
+#### Services & Ports (Docker Compose)
+
+| Service | URL / Port | Mục đích |
+|---------|-----------|---------|
+| **Backend API** | http://localhost:8000 | FastAPI + Swagger UI |
+| **PostgreSQL** | localhost:5432 | Database chính |
+| **Redis** | localhost:6379 | QR OTP cache |
+| **MinIO API** | http://localhost:9000 | Object storage (S3-compatible) |
+| **MinIO Console** | http://localhost:9001 | Web UI quản lý bucket |
+| **CloudBeaver** | http://localhost:8978 | Web UI review PostgreSQL |
+
+#### Credentials mặc định (Docker Compose)
+
+| Service | Biến | Giá trị mặc định | Ghi chú |
+|---------|------|-----------------|---------|
+| **PostgreSQL** | `POSTGRES_DB` | `me_dev` | |
+| | `POSTGRES_USER` | `me_user` | |
+| | `POSTGRES_PASSWORD` | `me_pass` | |
+| | `DATABASE_URL` | `postgresql+asyncpg://me_user:me_pass@localhost:5432/me_dev` | |
+| **Redis** | `REDIS_URL` | `redis://localhost:6379/0` | No auth |
+| **MinIO** | `MINIO_ROOT_USER` | `minioadmin` | |
+| | `MINIO_ROOT_PASSWORD` | `minioadmin` | |
+| | `MINIO_ENDPOINT_URL` | `http://localhost:9000` | |
+| | `S3_BUCKET` | `pawsnap` | Bucket tự tạo khi compose up |
+| **JWT Auth** | `JWT_SECRET_KEY` | `change-me-in-production` | **Bắt buộc thay trong prod** |
+| | `JWT_EXPIRE_DAYS` | `30` | |
+| **Firebase** | `FIREBASE_CREDENTIALS_JSON` | `""` (rỗng) | Không cần ở standalone mode |
+
+#### Kết nối CloudBeaver → PostgreSQL
+
+Lần đầu mở http://localhost:8978:
+1. Hoàn thành wizard tạo admin account
+2. **New Connection → PostgreSQL**
+3. Điền:
+   - Host: `postgres` *(tên service trong Docker network)*
+   - Port: `5432`
+   - Database: `me_dev`
+   - Username: `me_user`
+   - Password: `me_pass`
+
+#### Cấu hình backend `.env`
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+**Standalone mode (mặc định — không cần Firebase/AWS):**
 
 ```dotenv
-# Firebase Admin SDK — bắt buộc cho production
-# Lấy từ Firebase Console > Project Settings > Service Accounts
-FIREBASE_CREDENTIALS_JSON={"type":"service_account",...}
+AUTH_MODE=jwt
+JWT_SECRET_KEY=change-me-to-a-long-random-string-min-32-chars
+JWT_EXPIRE_DAYS=30
 
-# PostgreSQL
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/me_dev
+STORAGE_BACKEND=minio
+MINIO_ENDPOINT_URL=http://localhost:9000
+S3_BUCKET=pawsnap
+AWS_REGION=us-east-1
 
-# Redis
+DATABASE_URL=postgresql+asyncpg://me_user:me_pass@localhost:5432/me_dev
 REDIS_URL=redis://localhost:6379/0
 
-# AWS S3 (dùng moto mock khi test, cần real values khi chạy thực)
+FIREBASE_CREDENTIALS_JSON=
+```
+
+**Production mode (Firebase + AWS S3):**
+
+```dotenv
+AUTH_MODE=firebase
+FIREBASE_CREDENTIALS_JSON={"type":"service_account",...}
+
+STORAGE_BACKEND=s3
 S3_BUCKET=pawsnap
 CDN_BASE_URL=https://cdn.pawsnap.app
 AWS_REGION=us-east-1
 
-# Deep link base URL
-DEEP_LINK_BASE=https://petapp.example.com
-
-# Debug mode
-DEBUG=false
+DATABASE_URL=postgresql+asyncpg://<user>:<pass>@<host>/me_prod
+REDIS_URL=redis://<host>:6379/0
 ```
 
-> **Lưu ý:** Không có file `.env.example` trong repo — hãy tạo file `.env`
-> từ bảng trên và nhờ team trưởng cung cấp giá trị thực.
+> Xem đầy đủ tất cả env vars và giải thích: [`backend/.env.example`](backend/.env.example)
 
-### Bước 3 — Tạo database và chạy migrations
+---
+
+### Bước 3 — Khởi động hệ thống
+
+#### Option A — Docker Compose (khuyến nghị)
 
 ```bash
-# Tạo database (chạy một lần)
+docker compose up
+# Tự động: khởi động postgres + redis + minio + cloudbeaver + backend
+# Tự động: chạy alembic migrate + tạo bucket "pawsnap"
+```
+
+Verify:
+```bash
+curl http://localhost:8000/health          # → {"status":"ok"}
+curl -X POST http://localhost:8000/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"device_id":"test-123"}'           # → {"access_token":"..."}
+```
+
+#### Option B — Manual
+
+```bash
+# Tạo database
 createdb me_dev
 
-cd backend
-make migrate        # alembic upgrade head
+# Chạy migrations
+cd backend && make migrate
+
+# Khởi động backend
+make run
 ```
 
 Hiện có **7 migration files** theo thứ tự:
@@ -758,10 +843,13 @@ flutter build apk --dart-define=BASE_URL=https://api.dokat.app
 |---|---|
 | `README.md` trống | Dùng tài liệu này và `AGENT.md` thay thế |
 | Flutter SDK chưa cài | Cài Flutter 3.22+ từ flutter.dev trước khi chạy bất kỳ `flutter` command nào |
-| Firebase config chưa có | Chạy `flutterfire configure --project=dokat-67ae7` sau khi clone |
+| Firebase config chưa có | Chỉ cần nếu `AUTH_MODE=firebase`. Standalone mode không cần. Nếu dùng Firebase: chạy `flutterfire configure --project=dokat-67ae7` |
 | iOS build cần Xcode | macOS + Xcode 15+ từ App Store. `flutter run -d ios` sẽ fail đến khi Xcode cài xong |
-| `FIREBASE_CREDENTIALS_JSON` | Bắt buộc cho backend production. Để dev local, có thể dùng Application Default Credentials (`gcloud auth application-default login`) |
+| `JWT_SECRET_KEY` trong prod | Phải thay giá trị `change-me-in-production` bằng string ngẫu nhiên ≥ 32 ký tự. Dùng: `openssl rand -hex 32` |
+| `FIREBASE_CREDENTIALS_JSON` | Chỉ bắt buộc khi `AUTH_MODE=firebase`. Standalone mode để rỗng là ổn |
 | Database URL format | Backend dùng `postgresql+asyncpg://` cho runtime, nhưng Alembic migrations dùng sync driver (psycopg2) — `env.py` tự chuyển đổi |
+| MinIO bucket public | `minio-init` service tự tạo bucket `pawsnap` với policy `public` khi `docker compose up`. Nếu chạy manual cần tạo thủ công |
+| CloudBeaver host trong Docker | Dùng hostname `postgres` (tên service), không phải `localhost`, khi kết nối từ CloudBeaver vào PostgreSQL |
 | SQLite trong tests | Unit tests dùng SQLite in-memory (không cần Postgres). Integration tests mới cần Postgres thực |
 | `client-rn/` | React Native cũ — giữ làm reference, không cần maintain. `node_modules/` bị gitignore |
 
@@ -793,6 +881,7 @@ flutter build apk --dart-define=BASE_URL=https://api.dokat.app
 | F09 — Notification System | [`specs/f09-notifications/`](specs/f09-notifications/) |
 | F10 — Settings | [`specs/f10-settings/`](specs/f10-settings/) |
 | F11 — Location & Time Metadata | [`specs/f11-location-metadata/`](specs/f11-location-metadata/) |
+| F12 — Standalone Infrastructure | [`specs/f12-standalone-infra/`](specs/f12-standalone-infra/) |
 
 ### Stack references
 

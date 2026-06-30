@@ -194,3 +194,21 @@ deterministic cho test.
 **Consequence:** Cột `created_at` vẫn giữ `server_default now()`
 trong schema (cho INSERT trực tiếp ngoài service), nhưng đường đi qua
 service luôn nhất quán.
+
+---
+
+## DL-F05-12 — `pet_id` trong sendPost chưa có backend support
+
+**Ngày:** 2026-06-30
+
+**Context:** `SendService.sendPost` và UI `recipient_selector_screen.dart`
+truyền `pet_id` lên `POST /posts`, nhưng backend `CreatePostRequest` không
+có field này → Pydantic bỏ qua silently → tính năng tag pet không hoạt
+động.
+
+**Decision:** Giữ nguyên `pet_id` param ở client vì đây là planned feature
+(user chọn pet trước khi gửi post). Không xóa để tránh mất UI flow.
+
+**Action cần làm:** Khi implement pet-tagging, thêm
+`pet_id: uuid.UUID | None = None` vào `CreatePostRequest` backend và lưu
+vào bảng `posts`.

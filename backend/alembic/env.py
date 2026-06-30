@@ -22,7 +22,7 @@ if config.config_file_name is not None:
 # DATABASE_URL is respected at runtime.
 config.set_main_option(
     "sqlalchemy.url",
-    settings.database_url.replace("+asyncpg", ""),
+    settings.database_url.replace("+asyncpg", "+psycopg2"),
 )
 
 target_metadata = Base.metadata

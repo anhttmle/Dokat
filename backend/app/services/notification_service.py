@@ -4,6 +4,10 @@ Notifications are fire-and-forget: FCM failures are logged as warnings
 and never propagate to callers. Post creation is never rolled back due
 to notification failure (DL-F05-05).
 
+When Firebase is unavailable (standalone mode), all FCM sends are
+silently skipped. Use :func:`app.core.firebase.is_firebase_available`
+guard inside ``_send_fcm`` (AC-F12-5, DL-F12-06).
+
 New in F09:
 - ``send_new_photo``: push to each post recipient after post commit.
 - ``send_reminder``: push a daily reminder for a single user.
@@ -20,6 +24,7 @@ import firebase_admin.messaging
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.core.firebase import is_firebase_available
 from app.models.block import BlockedUser
 from app.models.notification_pref import ReminderType
 from app.models.post import Post
@@ -221,6 +226,14 @@ def _send_fcm(
         image: Optional image URL (thumbnail).
         data: Optional data payload dict for deep linking.
     """
+    if not is_firebase_available():
+        logger.warning(
+            "FCM skipped — Firebase not initialised (standalone mode). "
+            "token=%s",
+            token[:8],
+        )
+        return
+
     try:
         msg = firebase_admin.messaging.Message(
             notification=firebase_admin.messaging.Notification(

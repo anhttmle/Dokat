@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -8,35 +7,33 @@ import 'package:dokat/features/notifications/data/notification_service.dart';
 
 import 'notification_service_test.mocks.dart';
 
-@GenerateMocks([Dio, FirebaseMessaging, NotificationSettings])
+@GenerateMocks([Dio])
 void main() {
   late MockDio mockDio;
-  late MockFirebaseMessaging mockMessaging;
   late NotificationService service;
 
   setUp(() {
     mockDio = MockDio();
-    mockMessaging = MockFirebaseMessaging();
-    service = NotificationService(dio: mockDio, messaging: mockMessaging);
+    service = NotificationService(dio: mockDio);
   });
 
-  test('getPreferences parses prefs map', () async {
-    when(
-      mockDio.get<Map<String, dynamic>>(
-        '/notifications/preferences',
-      ),
-    ).thenAnswer(
-      (_) async => Response(
-        requestOptions: RequestOptions(
-          path: '/notifications/preferences',
-        ),
-        data: {'new_photo': true, 'friend_request': false},
-        statusCode: 200,
+  test('registerToken is a no-op', () async {
+    await service.registerToken();
+    verifyZeroInteractions(mockDio);
+  });
+
+  test('getPreferences returns map from backend', () async {
+    when(mockDio.get<Map<String, dynamic>>('/notifications/preferences'))
+        .thenAnswer(
+      (_) async => Response<Map<String, dynamic>>(
+        requestOptions: RequestOptions(path: '/notifications/preferences'),
+        data: {'feeding': true, 'sleeping': false},
       ),
     );
 
     final prefs = await service.getPreferences();
-    expect(prefs['new_photo'], isTrue);
-    expect(prefs['friend_request'], isFalse);
+
+    expect(prefs['feeding'], isTrue);
+    expect(prefs['sleeping'], isFalse);
   });
 }

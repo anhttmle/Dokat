@@ -1,6 +1,10 @@
-"""S3 storage helpers: presigned upload URLs and CDN URL building.
+"""Storage helpers: presigned upload URLs and public URL building.
 
-Refs: Design §3.3, §3.8, §4.2; DL-F02-04
+Supports two backends selected via ``STORAGE_BACKEND``:
+* ``"s3"``    — AWS S3 + CloudFront CDN (original behaviour)
+* ``"minio"`` — self-hosted MinIO (S3-compatible, no external deps)
+
+Refs: Design §3.3, §3.8, §4.2; DL-F02-04, DL-F12-04, DL-F12-05
 """
 
 import time
@@ -28,15 +32,38 @@ class InvalidContentTypeError(Exception):
     """Raised when an unsupported upload content type is requested."""
 
 
+def _get_s3_client():
+    """Return a boto3 S3 client configured for the active storage backend.
+
+    For MinIO, ``endpoint_url`` is set so boto3 routes requests to the
+    local MinIO server instead of AWS (DL-F12-04).
+    """
+    kwargs: dict = {
+        "region_name": settings.aws_region,
+        "config": _S3_CONFIG,
+    }
+    if settings.storage_backend == "minio":
+        kwargs["endpoint_url"] = settings.minio_endpoint_url
+    return boto3.client("s3", **kwargs)
+
+
 def build_cdn_url(object_key: str) -> str:
-    """Return the public CloudFront URL for an S3 object key.
+    """Return the public URL for the given object key.
+
+    * MinIO mode: ``{minio_endpoint_url}/{s3_bucket}/{object_key}``
+    * S3 mode:    ``{cdn_base_url}/{object_key}`` (CloudFront)
 
     Args:
-        object_key: S3 object key (no leading slash).
+        object_key: S3/MinIO object key (no leading slash).
 
     Returns:
-        Full CDN URL string.
+        Full public URL string.
     """
+    if settings.storage_backend == "minio":
+        return (
+            f"{settings.minio_endpoint_url}"
+            f"/{settings.s3_bucket}/{object_key}"
+        )
     return f"{settings.cdn_base_url}/{object_key}"
 
 
@@ -46,17 +73,15 @@ def generate_upload_url(
     content_type: str,
     expires_in: int = 300,
 ) -> PresignedUrlResponse:
-    """Generate a presigned S3 PUT URL with a user-scoped object key.
+    """Generate a presigned PUT URL with a user-scoped object key.
 
     The object key is built as ``{prefix}/{user_id}/{timestamp}.{ext}``
     so that all uploads for a user are grouped under their ID (DL-F02-04).
 
     Args:
-        user_id: Firebase UID of the requesting user.
-        prefix: S3 key prefix, e.g. ``"avatars/users"`` or
-            ``"avatars/pets"``.
-        content_type: Image MIME type; must be in
-            ``ALLOWED_CONTENT_TYPES``.
+        user_id: Authenticated user identifier (Firebase UID or device_id).
+        prefix: Key prefix, e.g. ``"avatars/users"`` or ``"posts"``.
+        content_type: Image MIME type; must be in ``ALLOWED_CONTENT_TYPES``.
         expires_in: Presigned URL lifetime in seconds (default 300).
 
     Returns:
@@ -72,11 +97,7 @@ def generate_upload_url(
     timestamp = int(time.time())
     object_key = f"{prefix}/{user_id}/{timestamp}.{ext}"
 
-    client = boto3.client(
-        "s3",
-        region_name=settings.aws_region,
-        config=_S3_CONFIG,
-    )
+    client = _get_s3_client()
     upload_url: str = client.generate_presigned_url(
         "put_object",
         Params={
@@ -100,12 +121,11 @@ def generate_presigned_url(
     content_type: str,
     expires_in: int = 300,
 ) -> PresignedUrlResponse:
-    """Generate a presigned S3 PUT URL for an explicit object key.
+    """Generate a presigned PUT URL for an explicit object key.
 
     Args:
-        object_key: Target S3 object key.
-        content_type: Image MIME type; must be in
-            ``ALLOWED_CONTENT_TYPES``.
+        object_key: Target object key.
+        content_type: Image MIME type; must be in ``ALLOWED_CONTENT_TYPES``.
         expires_in: URL lifetime in seconds.
 
     Returns:
@@ -117,11 +137,7 @@ def generate_presigned_url(
     if content_type not in ALLOWED_CONTENT_TYPES:
         raise InvalidContentTypeError(content_type)
 
-    client = boto3.client(
-        "s3",
-        region_name=settings.aws_region,
-        config=_S3_CONFIG,
-    )
+    client = _get_s3_client()
     upload_url: str = client.generate_presigned_url(
         "put_object",
         Params={

@@ -34,7 +34,6 @@ class ProfileScreen extends ConsumerWidget {
             _ProfileHeader(
               displayName: profile?.displayName ?? '',
               avatarUrl: profile?.avatarUrl,
-              bio: profile?.bio,
             ),
             const Divider(),
             Padding(
@@ -109,12 +108,10 @@ class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.displayName,
     this.avatarUrl,
-    this.bio,
   });
 
   final String displayName;
   final String? avatarUrl;
-  final String? bio;
 
   @override
   Widget build(BuildContext context) {
@@ -133,10 +130,6 @@ class _ProfileHeader extends StatelessWidget {
             displayName,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          if (bio != null) ...[
-            const SizedBox(height: 4),
-            Text(bio!, style: Theme.of(context).textTheme.bodyMedium),
-          ],
         ],
       ),
     );

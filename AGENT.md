@@ -13,8 +13,9 @@ chỉ tập trung vào pet content (không có ảnh người). MVP nhắm thị
 Việt Nam.
 
 - **Platform:** Flutter (iOS + Android)
-- **Backend:** FastAPI (Python) + PostgreSQL + Firebase Auth + S3 +
-  CloudFront
+- **Backend:** FastAPI (Python) + PostgreSQL + JWT Auth (default) hoặc
+  Firebase Auth (optional) + MinIO (default) hoặc S3 + CloudFront
+  (optional)
 - **Tài liệu nguồn:** [`specs/PRD.md`](specs/PRD.md) là source of truth cho
   yêu cầu sản phẩm.
 - **Migration spec:** [`specs/flutter-migration/`](specs/flutter-migration/)
@@ -87,12 +88,12 @@ backend/
 | Layer    | Công nghệ |
 |----------|-----------|
 | Client   | Flutter 3.22+, Dart 3.4+, Riverpod 2, go_router 14, Dio 5 |
-| Auth     | Firebase Auth (Anonymous + OAuth Apple/Google/Facebook) via FlutterFire |
+| Auth     | **JWT mode** (default, standalone): `POST /auth/token` với `device_id`; hoặc Firebase Auth khi `AUTH_MODE=firebase` |
 | Backend  | FastAPI, Uvicorn, SQLAlchemy (async), Alembic, Pydantic Settings |
 | Database | PostgreSQL (asyncpg) |
 | Cache    | Redis (QR OTP, TTL 5 phút) |
-| Storage  | AWS S3 + CloudFront CDN |
-| Push     | Firebase Cloud Messaging (FCM) + APNs (firebase_messaging) |
+| Storage  | **MinIO** (default, standalone) hoặc AWS S3 + CloudFront CDN khi `STORAGE_BACKEND=s3` |
+| Push     | Firebase Cloud Messaging (FCM) — graceful no-op khi Firebase không cấu hình |
 | AI       | On-device model (tflite_flutter) — client-side, không gọi server |
 | Test     | flutter_test + mockito (client); pytest, httpx, moto, fakeredis (backend) |
 
@@ -276,6 +277,42 @@ token qua `FirebaseAuthMiddleware` rồi inject `request.state.firebase_uid`.
   `app/services/`, routers chỉ điều phối.
 - **AI validation:** chạy hoàn toàn on-device, không gọi API server.
 - **Media retention:** ảnh free user ẩn sau 24h (record vẫn lưu).
+
+### F12 — Standalone mode (thêm 2026-06-30)
+
+Hệ thống hỗ trợ chạy hoàn toàn không phụ thuộc Firebase/AWS:
+
+| Env var | Giá trị | Hành vi |
+|---------|---------|---------|
+| `AUTH_MODE` | `jwt` | Backend tự cấp JWT, không cần Firebase |
+| `AUTH_MODE` | `firebase` (default) | Firebase Auth như cũ |
+| `STORAGE_BACKEND` | `minio` | Upload qua MinIO local |
+| `STORAGE_BACKEND` | `s3` (default) | AWS S3 như cũ |
+
+**Để chạy standalone:**
+```bash
+# Option 1: docker compose
+docker compose up   # khởi động postgres + redis + minio + backend
+
+# Option 2: local
+AUTH_MODE=jwt JWT_SECRET_KEY=your-secret STORAGE_BACKEND=minio \
+  MINIO_ENDPOINT_URL=http://localhost:9000 \
+  make run
+```
+
+**JWT flow (F12):**
+```
+Client: POST /auth/token { device_id }
+Backend: upsert user (firebase_uid=device_id), return JWT
+Client: Bearer <JWT> on all requests
+```
+
+**New files (F12):**
+- `backend/app/core/jwt_auth.py` — `create_token`, `verify_token`
+- `backend/app/routers/auth_jwt.py` — `POST /auth/token`
+- `docker-compose.yml` — full standalone stack
+- `backend/.env.example` — tất cả env vars documented
+- `specs/f12-standalone-infra/` — requirements, design, tasks
 
 ### Gap đã biết (cần lưu ý, không tự ý sửa nếu không được yêu cầu)
 

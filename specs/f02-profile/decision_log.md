@@ -309,3 +309,20 @@ viết theo dạng object-literal export default (nhất quán với
 `AuthService` hiện có) thay vì class như mô tả trong plan —
 chọn để khớp style codebase và đơn giản hóa manual mock.
 **Phát sinh trong:** Task 1.2 (scaffold client F02).
+
+---
+
+## DL-F02-20 — Contract fixes: pet_id→id, bỏ breed/bio
+
+**Ngày:** 2026-06-30
+
+**Context:** Verify API contract client ↔ backend phát hiện 5 mismatch trong F02.
+
+**Decisions:**
+1. `PetProfile.fromJson`: đổi `json['pet_id']` → `json['id']` (backend trả field `id`, không phải `pet_id`) — đây là CRITICAL crash.
+2. `OwnerProfile.fromJson`: `display_name` cast `as String? ?? ''` thay vì `as String` vì backend cho phép null.
+3. Xóa field `breed` khỏi `PetProfile` hoàn toàn (fromJson/toJson/model) — backend `PetResponse` và `CreatePetRequest` không có field này.
+4. Xóa field `bio` khỏi `OwnerProfile` và toàn bộ UI liên quan — backend `OwnerProfileResponse` và `PatchOwnerProfileRequest` không có field này.
+5. `PetProfile.linkedPhotoUrl` giữ lại (nullable, luôn null) với comment planned — backend chưa trả field này nhưng feature đã có trong client flow.
+
+**Consequence:** Nếu muốn thêm `breed` hoặc `bio` trong tương lai, cần thêm vào backend schema trước.

@@ -53,9 +53,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
     if (mounted) setState(() => _initializing = false);
   }
 
-  /// Web: pick from gallery / camera via browser file input.
+  /// Web: capture via browser camera or file input.
   Future<void> _pickOnWeb() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final picked = await ImagePicker().pickImage(source: ImageSource.camera);
     if (picked == null || !mounted) return;
     await _validateAndPush(XFile(picked.path, bytes: await picked.readAsBytes()));
   }
@@ -83,11 +83,14 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
         );
         return;
       }
+      // Read bytes before navigating so web blob URLs remain valid.
+      final bytes = await xFile.readAsBytes();
       unawaited(
         context.push<void>(
           '/send/recipients',
           extra: {
             'image_path': xFile.path,
+            'image_bytes': bytes,
             'pet_id': _selectedPet?.petId,
           },
         ),

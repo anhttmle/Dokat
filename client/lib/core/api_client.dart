@@ -1,13 +1,17 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'constants.dart';
 
+/// Storage key for the JWT issued by POST /auth/token.
+const String kJwtTokenKey = 'jwt_token';
+
 /// Creates and configures the shared [Dio] instance.
 ///
-/// Injects Firebase ID Token as Bearer token on every request.
-Dio createApiClient({FirebaseAuth? auth}) {
-  final firebaseAuth = auth ?? FirebaseAuth.instance;
+/// Injects `Authorization: Bearer <jwt>` from [FlutterSecureStorage].
+Dio createApiClient({FlutterSecureStorage? secureStorage}) {
+  final storage = secureStorage ?? const FlutterSecureStorage();
+
   final dio = Dio(
     BaseOptions(
       baseUrl: Constants.baseUrl,
@@ -19,10 +23,9 @@ Dio createApiClient({FirebaseAuth? auth}) {
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final user = firebaseAuth.currentUser;
-        if (user != null) {
-          final token = await user.getIdToken();
-          options.headers['Authorization'] = 'Bearer $token';
+        final jwt = await storage.read(key: kJwtTokenKey);
+        if (jwt != null) {
+          options.headers['Authorization'] = 'Bearer $jwt';
         }
         handler.next(options);
       },

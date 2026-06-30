@@ -1,35 +1,17 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 
-/// Handles FCM token registration and notification preferences.
+/// Handles notification preferences via backend API.
+///
+/// Push token registration (FCM) is not supported — auth is backend-only.
 class NotificationService {
-  NotificationService({
-    required Dio dio,
-    FirebaseMessaging? messaging,
-  })  : _dio = dio,
-        _messaging = messaging ?? FirebaseMessaging.instance;
+  NotificationService({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
-  final FirebaseMessaging _messaging;
 
-  /// Requests notification permission and registers the FCM token
-  /// with the backend via PUT /friends/fcm-token.
-  Future<void> registerToken() async {
-    final settings = await _messaging.requestPermission();
-    if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      return;
-    }
-    final token = await _messaging.getToken();
-    if (token == null) return;
-    await _dio.put<void>(
-      '/friends/fcm-token',
-      data: {'fcm_token': token},
-    );
-  }
+  /// No-op: push notifications require FCM which is not used.
+  Future<void> registerToken() async {}
 
   /// GET /notifications/preferences
-  ///
-  /// Returns a map of preference type → enabled.
   Future<Map<String, bool>> getPreferences() async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/notifications/preferences',

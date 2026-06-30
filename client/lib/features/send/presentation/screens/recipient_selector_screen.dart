@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,11 +43,18 @@ class _RecipientSelectorScreenState
       final captureService = CaptureService(dio: dio);
 
       final imagePath = widget.imageData['image_path'] as String;
+      final imageBytes = widget.imageData['image_bytes'] as Uint8List?;
       final petId = widget.imageData['pet_id'] as String?;
+
+      // Prefer bytes (safe on web where blob URLs may be revoked),
+      // fall back to path on mobile.
+      final xFile = imageBytes != null
+          ? XFile.fromData(imageBytes, mimeType: 'image/jpeg')
+          : XFile(imagePath);
 
       final (:uploadUrl, :s3Key, :cdnUrl) =
           await sendService.getUploadUrl('image/jpeg');
-      await captureService.uploadImage(XFile(imagePath), uploadUrl);
+      await captureService.uploadImage(xFile, uploadUrl);
 
       final location = await LocationService().getCurrentPayload();
 

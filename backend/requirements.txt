@@ -4,10 +4,12 @@ sqlalchemy[asyncio]
 alembic
 firebase-admin
 asyncpg
+psycopg2-binary
 boto3
 pydantic-settings
 apscheduler
 pyyaml
+PyJWT
 pytest
 pytest-asyncio
 httpx
