@@ -85,7 +85,8 @@ services:
       STORAGE_BACKEND: minio
       MINIO_ENDPOINT_URL: http://minio:9000
       # Browser upload: presigned URL phải trỏ host mà client bên ngoài reach được
-      MINIO_PUBLIC_ENDPOINT_URL: http://${PUBLIC_HOST:-localhost}:9000
+      # Dùng HTTPS endpoint (cùng nginx) để tránh mixed-content khi app chạy HTTPS
+      MINIO_PUBLIC_ENDPOINT_URL: https://${PUBLIC_HOST:-localhost}:8443
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       S3_BUCKET: pawsnap
