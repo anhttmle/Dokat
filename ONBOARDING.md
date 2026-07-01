@@ -256,7 +256,27 @@ PUBLIC_HOST=192.168.1.100
 |------|----------|
 | `PUBLIC_HOST` | Hostname/IP mà **trình duyệt bên ngoài** dùng để mở app |
 | → MinIO presigned URL | `http://PUBLIC_HOST:9000/...` (upload ảnh) |
-| → Flutter web API | Tự động qua `http://PUBLIC_HOST:8080/api` (nginx proxy) |
+| → Flutter web API | Tự động qua `https://PUBLIC_HOST:8443/api` (nginx proxy) |
+
+#### HTTPS — bắt buộc để camera hoạt động trên LAN
+
+Trình duyệt chỉ cho phép `getUserMedia` (camera/microphone) trong **secure
+context** (`https://` hoặc `localhost`). Cần chạy qua HTTPS khi dùng từ
+điện thoại hoặc thiết bị khác trong mạng LAN.
+
+**Lần đầu (một lần duy nhất trên máy host):**
+
+```bash
+brew install mkcert   # macOS; xem https://github.com/FiloSottile/mkcert
+mkcert -install       # cài root CA vào hệ thống
+make gen-certs PUBLIC_HOST=192.168.1.100   # tạo cert cho IP LAN
+```
+
+**Cài root CA lên iPhone/Android (để Safari/Chrome tin cert):**
+1. Tìm file CA: `open "$(mkcert -CAROOT)"` → lấy `rootCA.pem`
+2. AirDrop / email file đó sang điện thoại
+3. iOS: mở file → cài Profile → Settings → General → About →
+   Certificate Trust Settings → bật trust cho "mkcert …"
 
 ```bash
 docker compose up -d
@@ -267,8 +287,9 @@ docker compose up -d
 
 | Service | URL |
 |---------|-----|
-| App web | http://192.168.1.100:8080 |
-| API (qua proxy) | http://192.168.1.100:8080/api |
+| App web (HTTPS — camera OK) | **https://192.168.1.100:8443** |
+| App web (HTTP → redirect) | http://192.168.1.100:8080 |
+| API (qua proxy) | https://192.168.1.100:8443/api |
 | MinIO upload | http://192.168.1.100:9000 |
 | Backend trực tiếp (Swagger) | http://192.168.1.100:8000 |
 
@@ -282,9 +303,9 @@ docker compose up -d
 
 Verify:
 ```bash
-curl http://localhost:8000/health          # → {"status":"ok"}
-curl http://localhost:8080/api/health        # → {"status":"ok"} (qua proxy)
-curl -I http://localhost:8080                # → HTTP/1.1 200 OK
+curl http://localhost:8000/health               # → {"status":"ok"}
+curl -k https://localhost:8443/api/health       # → {"status":"ok"} (qua proxy)
+curl -kI https://localhost:8443                 # → HTTP/1.1 200 OK
 ```
 
 Chỉ build lại client web sau khi sửa Flutter:
@@ -293,10 +314,11 @@ Chỉ build lại client web sau khi sửa Flutter:
 docker compose up -d --build client
 ```
 
-Sau khi đổi `PUBLIC_HOST`, restart backend (MinIO URL):
+Sau khi đổi `PUBLIC_HOST`, cần gen lại cert và restart:
 
 ```bash
-docker compose up -d --force-recreate backend
+make gen-certs PUBLIC_HOST=<IP-mới>
+docker compose up -d --force-recreate backend client
 ```
 
 #### Option B — Manual

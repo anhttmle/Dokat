@@ -104,13 +104,18 @@ services:
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   # Flutter web — nginx phục vụ static + proxy /api → backend
-  # Mở http://<PUBLIC_HOST>:8080 (API: cùng origin /api)
+  # HTTP  http://<PUBLIC_HOST>:8080  → redirect 301 → HTTPS
+  # HTTPS https://<PUBLIC_HOST>:8443 → app (camera hoạt động)
+  # Cert: chạy `make gen-certs PUBLIC_HOST=<IP>` trước khi up
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
     ports:
       - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - backend
     restart: unless-stopped

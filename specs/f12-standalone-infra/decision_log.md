@@ -108,3 +108,25 @@ tất cả màn hình hiện DioException.
 3. `api_client` interceptor ưu tiên JWT trong storage hơn Firebase token.
 
 **Consequence:** Client tự detect backend mode, không cần `--dart-define`.
+
+---
+
+## DL-F12-10: HTTPS qua mkcert để camera hoạt động trên LAN
+
+**Ngày:** 2026-07-01
+
+**Context:** `navigator.mediaDevices.getUserMedia` (camera API trên web) bị trình
+duyệt chặn trên non-secure context. `http://<LAN-IP>:8080` không phải secure
+context → không có permission dialog → `camera_web` throw exception.
+
+**Quyết định:**
+- Thêm nginx server block HTTPS trên port 443 (host: 8443) + redirect HTTP → HTTPS.
+- Cert được tạo bằng `mkcert` (locally-trusted CA) via `make gen-certs`.
+- Cert files lưu trong `certs/` ở root repo (gitignored), mount vào nginx container.
+- Root CA của mkcert cần cài thủ công trên iPhone để Safari tin cert.
+
+**Consequence:**
+- Camera hoạt động trên `https://<LAN-IP>:8443`.
+- `http://<LAN-IP>:8080` tự redirect sang HTTPS.
+- `certs/` không commit vào git — mỗi môi trường chạy `make gen-certs` một lần.
+
