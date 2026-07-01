@@ -34,13 +34,12 @@ class _RecipientSelectorScreenState
   bool _sending = false;
 
   Future<void> _send() async {
-    if (_selectedIds.isEmpty) return;
     setState(() => _sending = true);
 
     try {
       final dio = ref.read(dioProvider);
       final sendService = SendService(dio: dio);
-      final captureService = CaptureService(dio: dio);
+      final captureService = CaptureService();
 
       final imagePath = widget.imageData['image_path'] as String;
       final imageBytes = widget.imageData['image_bytes'] as Uint8List?;

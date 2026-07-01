@@ -48,6 +48,9 @@ client/
 │   ├── features/     # F01–F11, mỗi feature có data/domain/presentation/
 │   └── shared/       # Shared widgets + utils
 ├── test/             # Flutter tests (mirror lib/)
+├── web/              # Flutter web shell (index.html, manifest)
+├── Dockerfile        # Multi-stage: flutter build web → nginx
+├── Makefile          # run-web, build-web, docker-build
 ├── android/          # Android native shell
 │   └── app/
 │       └── google-services.json  (gitignore'd — tự đặt)
@@ -292,7 +295,8 @@ Hệ thống hỗ trợ chạy hoàn toàn không phụ thuộc Firebase/AWS:
 **Để chạy standalone:**
 ```bash
 # Option 1: docker compose
-docker compose up   # khởi động postgres + redis + minio + backend
+docker compose up   # postgres + redis + minio + backend + client (:8080)
+# Đặt PUBLIC_HOST trong .env (IP LAN) trước khi truy cập từ thiết bị ngoài host.
 
 # Option 2: local
 AUTH_MODE=jwt JWT_SECRET_KEY=your-secret STORAGE_BACKEND=minio \
@@ -313,6 +317,14 @@ Client: Bearer <JWT> on all requests
 - `docker-compose.yml` — full standalone stack
 - `backend/.env.example` — tất cả env vars documented
 - `specs/f12-standalone-infra/` — requirements, design, tasks
+- `client/lib/core/session_storage.dart` — `SessionStorage` abstraction
+  (web → `SharedPreferences`; mobile → `FlutterSecureStorage`)
+
+**Storage platform split (DL-F12-09):**
+`flutter_secure_storage_web` cần Web Crypto API — chỉ hoạt động trên
+`https://` hoặc `localhost`. Deploy qua `http://<LAN-IP>` trả lỗi
+"Null check operator on null value" ngay khi khởi app. Fix: web dùng
+`_SharedPreferencesStorage`, inject qua `sessionStorageProvider` (Riverpod).
 
 ### Gap đã biết (cần lưu ý, không tự ý sửa nếu không được yêu cầu)
 

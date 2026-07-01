@@ -9,7 +9,12 @@ import '../../domain/auth_state.dart';
 /// Provides [AuthState] and exposes auth operations to the UI.
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(AuthService(dio: ref.read(dioProvider))),
+  (ref) => AuthNotifier(
+    AuthService(
+      dio: ref.read(dioProvider),
+      storage: ref.read(sessionStorageProvider),
+    ),
+  ),
 );
 
 /// Manages authentication state for the entire app.

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,11 +27,32 @@ class _CreatePetSheetState extends ConsumerState<CreatePetSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     setState(() => _loading = true);
-    await ref.read(petNotifierProvider.notifier).createPet({
-      'name': name,
-      'species': _species,
-    });
-    if (mounted) Navigator.of(context).pop();
+    try {
+      await ref.read(petNotifierProvider.notifier).createPet({
+        'name': name,
+        'species': _species,
+      });
+      if (mounted) Navigator.of(context).pop();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final body = e.response?.data;
+      if (body is Map && body['error'] == 'PET_LIMIT_REACHED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tài khoản miễn phí chỉ có 1 hồ sơ thú cưng. '
+              'Nhấn biểu tượng sửa trên thú cưng hiện có để đổi loài.',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: ${e.message}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override

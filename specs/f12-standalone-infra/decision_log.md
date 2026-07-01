@@ -68,6 +68,31 @@ token. SharedPreferences/Hive không mã hoá.
 
 ---
 
+## DL-F12-09: Web dùng shared_preferences thay flutter_secure_storage
+
+**Ngày:** 2026-07-01
+
+**Context:** `flutter_secure_storage_web` dùng Web Crypto API (`window.crypto`)
+để mã hoá trước khi ghi localStorage. Trình duyệt chỉ cấp `window.crypto`
+trong **secure context** (`https://` hoặc `localhost`). Deploy Docker qua
+`http://<LAN-IP>:8080` không đáp ứng điều kiện này, dẫn đến
+`Null check operator used on a null value` → Auth error khi mở app trên IP LAN.
+
+**Quyết định:** Tạo `SessionStorage` abstraction (`client/lib/core/session_storage.dart`):
+- **Web:** `_SharedPreferencesStorage` (wraps `shared_preferences`) — không cần
+  Web Crypto, hoạt động trên plain HTTP.
+- **Mobile/desktop:** `_SecureStorage` (wraps `FlutterSecureStorage`) — dùng
+  OS keychain/keystore như cũ.
+
+`createSessionStorage()` inject qua `sessionStorageProvider` (Riverpod) trước
+`runApp`, dùng chung trong `AuthService` và `api_client`.
+
+**Consequence:** JWT trên web lưu vào `localStorage` không mã hoá. Chấp nhận
+được cho deploy LAN/dev. Production web nên thêm HTTPS để dùng được
+`flutter_secure_storage_web`.
+
+---
+
 ## DL-F12-08: AuthNotifier JWT bootstrap trước Firebase
 
 **Ngày:** 2026-07-01

@@ -30,7 +30,6 @@ dependencies:
 
   # Camera & media
   camera: ^0.11.0+2
-  image_picker: ^1.1.2
 
   # QR
   qr_flutter: ^4.1.0

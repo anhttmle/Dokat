@@ -33,6 +33,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -57,7 +58,7 @@ services:
     restart: "no"
 
   # CloudBeaver — web UI cho PostgreSQL (phiên bản web của DBeaver)
-  # Mở http://localhost:8978 sau khi khởi động
+  # Mở http://<PUBLIC_HOST>:8978 sau khi khởi động
   cloudbeaver:
     image: dbeaver/cloudbeaver:latest
     ports:
@@ -83,6 +84,10 @@ services:
       JWT_EXPIRE_DAYS: "30"
       STORAGE_BACKEND: minio
       MINIO_ENDPOINT_URL: http://minio:9000
+      # Browser upload: presigned URL phải trỏ host mà client bên ngoài reach được
+      MINIO_PUBLIC_ENDPOINT_URL: http://${PUBLIC_HOST:-localhost}:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
       S3_BUCKET: pawsnap
       AWS_REGION: us-east-1
       # Leave FIREBASE_CREDENTIALS_JSON empty for standalone mode.
@@ -97,6 +102,18 @@ services:
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # Flutter web — nginx phục vụ static + proxy /api → backend
+  # Mở http://<PUBLIC_HOST>:8080 (API: cùng origin /api)
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:

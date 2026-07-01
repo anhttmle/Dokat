@@ -1,0 +1,10 @@
+.dart_tool/
+.idea/
+build/
+android/
+ios/
+test/
+*.iml
+.git/
+.gitignore
+README.md

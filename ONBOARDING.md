@@ -150,7 +150,8 @@ cd ..
 
 | Service | URL / Port | Mục đích |
 |---------|-----------|---------|
-| **Backend API** | http://localhost:8000 | FastAPI + Swagger UI |
+| **Flutter Web** | http://\<PUBLIC_HOST\>:8080 | Client web; API tại `/api` |
+| **Backend API** | http://\<PUBLIC_HOST\>:8000 | Swagger (tùy chọn; web dùng `/api`) |
 | **PostgreSQL** | localhost:5432 | Database chính |
 | **Redis** | localhost:6379 | QR OTP cache |
 | **MinIO API** | http://localhost:9000 | Object storage (S3-compatible) |
@@ -168,7 +169,9 @@ cd ..
 | **Redis** | `REDIS_URL` | `redis://localhost:6379/0` | No auth |
 | **MinIO** | `MINIO_ROOT_USER` | `minioadmin` | |
 | | `MINIO_ROOT_PASSWORD` | `minioadmin` | |
-| | `MINIO_ENDPOINT_URL` | `http://localhost:9000` | |
+| | `MINIO_ENDPOINT_URL` | `http://localhost:9000` | Backend → MinIO (trong Docker: `http://minio:9000`) |
+| | `MINIO_PUBLIC_ENDPOINT_URL` | `http://<PUBLIC_HOST>:9000` | Presigned URL cho browser (set trong `.env` gốc) |
+| | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | `minioadmin` / `minioadmin` | boto3 ký presigned URL |
 | | `S3_BUCKET` | `pawsnap` | Bucket tự tạo khi compose up |
 | **JWT Auth** | `JWT_SECRET_KEY` | `change-me-in-production` | **Bắt buộc thay trong prod** |
 | | `JWT_EXPIRE_DAYS` | `30` | |
@@ -201,6 +204,8 @@ JWT_EXPIRE_DAYS=30
 
 STORAGE_BACKEND=minio
 MINIO_ENDPOINT_URL=http://localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 S3_BUCKET=pawsnap
 AWS_REGION=us-east-1
 
@@ -233,18 +238,65 @@ REDIS_URL=redis://<host>:6379/0
 
 #### Option A — Docker Compose (khuyến nghị)
 
+Tạo file `.env` ở thư mục gốc repo (copy từ `.env.example`):
+
 ```bash
-docker compose up
-# Tự động: khởi động postgres + redis + minio + cloudbeaver + backend
-# Tự động: chạy alembic migrate + tạo bucket "pawsnap"
+cp .env.example .env
 ```
+
+**Truy cập từ máy khác (điện thoại, laptop trong LAN):** đặt `PUBLIC_HOST`
+bằng **IP LAN** của máy chạy Docker (không dùng `localhost`):
+
+```dotenv
+# Ví dụ máy host có IP 192.168.1.100 trên WiFi
+PUBLIC_HOST=192.168.1.100
+```
+
+| Biến | Mục đích |
+|------|----------|
+| `PUBLIC_HOST` | Hostname/IP mà **trình duyệt bên ngoài** dùng để mở app |
+| → MinIO presigned URL | `http://PUBLIC_HOST:9000/...` (upload ảnh) |
+| → Flutter web API | Tự động qua `http://PUBLIC_HOST:8080/api` (nginx proxy) |
+
+```bash
+docker compose up -d
+# Tự động: postgres + redis + minio + cloudbeaver + backend + client web
+```
+
+**URL khi `PUBLIC_HOST=192.168.1.100`:**
+
+| Service | URL |
+|---------|-----|
+| App web | http://192.168.1.100:8080 |
+| API (qua proxy) | http://192.168.1.100:8080/api |
+| MinIO upload | http://192.168.1.100:9000 |
+| Backend trực tiếp (Swagger) | http://192.168.1.100:8000 |
+
+> Client web **không** hardcode `localhost:8000`. Nginx proxy `/api` → backend
+> nên cùng một image hoạt động từ localhost lẫn IP LAN mà không rebuild.
+>
+> **Web session storage:** trên web, JWT và `device_id` được lưu vào
+> `localStorage` (qua `shared_preferences`) thay vì `flutter_secure_storage`,
+> vì Web Crypto API — cần thiết để mã hoá — chỉ hoạt động trên `https://`
+> hoặc `localhost`. Plain HTTP qua IP LAN hoạt động bình thường với cách này.
 
 Verify:
 ```bash
 curl http://localhost:8000/health          # → {"status":"ok"}
-curl -X POST http://localhost:8000/auth/token \
-  -H "Content-Type: application/json" \
-  -d '{"device_id":"test-123"}'           # → {"access_token":"..."}
+curl http://localhost:8080/api/health        # → {"status":"ok"} (qua proxy)
+curl -I http://localhost:8080                # → HTTP/1.1 200 OK
+```
+
+Chỉ build lại client web sau khi sửa Flutter:
+
+```bash
+docker compose up -d --build client
+```
+
+Sau khi đổi `PUBLIC_HOST`, restart backend (MinIO URL):
+
+```bash
+docker compose up -d --force-recreate backend
 ```
 
 #### Option B — Manual

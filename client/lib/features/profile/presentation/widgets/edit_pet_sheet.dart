@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,11 +38,20 @@ class _EditPetSheetState extends ConsumerState<EditPetSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     setState(() => _loading = true);
-    await ref.read(petNotifierProvider.notifier).updatePet(
-      widget.pet.petId,
-      {'name': name, 'species': _species},
-    );
-    if (mounted) Navigator.of(context).pop();
+    try {
+      await ref.read(petNotifierProvider.notifier).updatePet(
+            widget.pet.petId,
+            {'name': name, 'species': _species},
+          );
+      if (mounted) Navigator.of(context).pop();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: ${e.message}')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override

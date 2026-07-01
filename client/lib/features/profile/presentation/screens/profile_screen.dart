@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants.dart';
+import '../../domain/pet_profile.dart';
 import '../providers/pet_notifier.dart';
 import '../providers/profile_notifier.dart';
 import '../widgets/create_pet_sheet.dart';
 import '../widgets/edit_owner_sheet.dart';
+import '../widgets/edit_pet_sheet.dart';
 
 /// Displays the owner profile and list of pets.
 class ProfileScreen extends ConsumerWidget {
@@ -50,7 +53,18 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.add),
-                    onPressed: () => _addPet(context, ref),
+                    tooltip: petsAsync.maybeWhen(
+                      data: (pets) => pets.length >= Constants.maxPetsFree
+                          ? 'Đã đạt giới hạn hồ sơ thú cưng'
+                          : 'Thêm thú cưng',
+                      orElse: () => 'Thêm thú cưng',
+                    ),
+                    onPressed: petsAsync.maybeWhen(
+                      data: (pets) => pets.length >= Constants.maxPetsFree
+                          ? null
+                          : () => _addPet(context, ref),
+                      orElse: () => () => _addPet(context, ref),
+                    ),
                   ),
                 ],
               ),
@@ -59,9 +73,24 @@ class ProfileScreen extends ConsumerWidget {
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Lỗi: $e')),
-              data: (pets) => Column(
-                children: pets
-                    .map(
+              data: (pets) {
+                final atPetLimit = pets.length >= Constants.maxPetsFree;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (atPetLimit)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          'Mỗi tài khoản chỉ có ${Constants.maxPetsFree} '
+                          'hồ sơ thú cưng. Sửa hồ sơ hiện có để đổi loài.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ...pets.map(
                       (pet) => ListTile(
                         leading: pet.avatarUrl != null
                             ? CircleAvatar(
@@ -72,14 +101,22 @@ class ProfileScreen extends ConsumerWidget {
                                 child: Icon(Icons.pets),
                               ),
                         title: Text(pet.name),
-                        subtitle: Text(pet.species),
+                        subtitle: Text(
+                          pet.species == 'cat' ? 'Mèo' : 'Chó',
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          tooltip: 'Chỉnh sửa',
+                          onPressed: () => _editPet(context, pet),
+                        ),
                         onTap: () => context.push(
                           '/settings/profile/pet/${pet.petId}',
                         ),
                       ),
-                    )
-                    .toList(),
-              ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -100,6 +137,14 @@ class ProfileScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => const CreatePetSheet(),
+    );
+  }
+
+  void _editPet(BuildContext context, PetProfile pet) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => EditPetSheet(pet: pet),
     );
   }
 }

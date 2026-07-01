@@ -32,18 +32,29 @@ class InvalidContentTypeError(Exception):
     """Raised when an unsupported upload content type is requested."""
 
 
+def _minio_public_base() -> str:
+    """Return the MinIO base URL exposed to clients (browser / app)."""
+    if settings.minio_public_endpoint_url:
+        return settings.minio_public_endpoint_url.rstrip("/")
+    return settings.minio_endpoint_url.rstrip("/")
+
+
 def _get_s3_client():
     """Return a boto3 S3 client configured for the active storage backend.
 
-    For MinIO, ``endpoint_url`` is set so boto3 routes requests to the
-    local MinIO server instead of AWS (DL-F12-04).
+    For MinIO, presigned URLs must be signed against the **public**
+    endpoint (``minio_public_endpoint_url``) so browser PUT requests
+    validate the SigV4 ``Host`` header. Signing with the internal Docker
+    hostname and rewriting the URL breaks the signature (403).
     """
     kwargs: dict = {
         "region_name": settings.aws_region,
         "config": _S3_CONFIG,
     }
     if settings.storage_backend == "minio":
-        kwargs["endpoint_url"] = settings.minio_endpoint_url
+        kwargs["endpoint_url"] = _minio_public_base()
+        kwargs["aws_access_key_id"] = settings.minio_access_key
+        kwargs["aws_secret_access_key"] = settings.minio_secret_key
     return boto3.client("s3", **kwargs)
 
 
@@ -61,7 +72,7 @@ def build_cdn_url(object_key: str) -> str:
     """
     if settings.storage_backend == "minio":
         return (
-            f"{settings.minio_endpoint_url}"
+            f"{_minio_public_base()}"
             f"/{settings.s3_bucket}/{object_key}"
         )
     return f"{settings.cdn_base_url}/{object_key}"

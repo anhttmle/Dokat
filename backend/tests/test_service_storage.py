@@ -101,3 +101,75 @@ def test_cdn_url_built_from_object_key() -> None:
     object_key = "avatars/users/uid/ts.jpg"
     cdn_url = storage_service.build_cdn_url(object_key)
     assert cdn_url == f"{_TEST_CDN}/{object_key}"
+
+
+def test_build_cdn_url_uses_minio_public_endpoint(monkeypatch) -> None:
+    """MinIO cdn_url uses the browser-reachable public endpoint."""
+    monkeypatch.setattr(
+        storage_service.settings,
+        "storage_backend",
+        "minio",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "minio_endpoint_url",
+        "http://minio:9000",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "minio_public_endpoint_url",
+        "http://localhost:9000",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "s3_bucket",
+        "pawsnap",
+    )
+
+    cdn_url = storage_service.build_cdn_url("posts/u/1.jpg")
+    assert cdn_url == "http://localhost:9000/pawsnap/posts/u/1.jpg"
+
+
+def test_get_s3_client_uses_public_minio_endpoint_for_signing(
+    monkeypatch,
+) -> None:
+    """Presigned URLs are signed with the browser-reachable MinIO host."""
+    monkeypatch.setattr(
+        storage_service.settings,
+        "storage_backend",
+        "minio",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "minio_endpoint_url",
+        "http://minio:9000",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "minio_public_endpoint_url",
+        "http://localhost:9000",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "minio_access_key",
+        "minioadmin",
+    )
+    monkeypatch.setattr(
+        storage_service.settings,
+        "minio_secret_key",
+        "minioadmin",
+    )
+
+    captured: dict = {}
+
+    def fake_client(service_name, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(storage_service.boto3, "client", fake_client)
+
+    storage_service._get_s3_client()
+
+    assert captured["endpoint_url"] == "http://localhost:9000"
+    assert captured["aws_access_key_id"] == "minioadmin"
+    assert captured["aws_secret_access_key"] == "minioadmin"
